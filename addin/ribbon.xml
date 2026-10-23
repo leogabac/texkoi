@@ -1,0 +1,4 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<customUI xmlns="http://schemas.microsoft.com/office/2006/01/customui" onLoad="OnAddinLoad">
+<ribbon><tabs><tab id="probeTab" label="TexKoi"><group id="equations" label="Equations"><button id="newEquation" label="New equation" size="large" onAction="OnNewEquation"/></group><group id="probeGroup" label="Prototype"><button id="probeHello" label="Hello TexKoi" size="large" onAction="OnHello"/><button id="probeInsert" label="Insert test image" size="large" onAction="OnInsertProbe"/><button id="probeRead" label="Read source" size="large" onAction="OnReadProbe"/></group></tab></tabs></ribbon>
+</customUI>
