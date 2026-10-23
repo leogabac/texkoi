@@ -20,8 +20,8 @@ python scripts/register.py install
 python scripts/serve.py
 ```
 
-Leave the server running, fully restart WPS, and open a presentation. In the
-**TexKoi** tab, click **Insert test image**. Save as `.pptx`, close and reopen,
+Leave the server running, fully restart WPS, and open a presentation. The early probe used **Insert test image** and **Read source** buttons, now
+removed from the ribbon. Its persistence check was: Save as `.pptx`, close and reopen,
 select the image, and click **Read source**. The expected source is:
 
 ```latex
@@ -38,7 +38,7 @@ the repository, update that path. The server listens only on `127.0.0.1:3899`;
 stop the old probe server before starting it.
 
 Registration backs up an existing `publish.xml`, preserves unrelated add-ins,
-and replaces the temporary `IguanaButtonProbe` entry. To remove TexKoi:
+and replaces the temporary `IguanaButtonProbe` entry. To remove TeXKoi:
 
 ```bash
 python scripts/register.py uninstall
@@ -81,3 +81,23 @@ checks passed. The user confirmed the PNG editor/preview/insertion workflow work
 The user also confirmed the SVG workflow and the revised two-action editor:
 **Render preview** previews only; **Render & insert** compiles, inserts, and
 automatically closes the editor on success. Errors keep the editor open.
+
+## Editing equations
+
+Select one ungrouped TeXKoi equation and click **Edit equation**. The editor
+restores its source, nominal size, and format. **Render & update** creates a
+replacement before deleting the original. It preserves top/left position,
+rotation, layer order, and manual horizontal/vertical scale. A longer equation
+therefore grows in width at the existing scale rather than being squeezed into
+the old bounding box. Changing the size control scales relative to that state.
+Older equations without natural-size tags are compiled once more to recover
+the original dimensions.
+
+The production ribbon now contains only **New equation** and **Edit equation**;
+the early probe helpers remain in the code for reference.
+
+Run `node tests/editor.cjs` for simulated-host checks of source restoration,
+manual scaling, successful replacement, and original preservation on compiler
+or metadata failure. These checks passed, as did syntax/XML checks. The user confirmed actual WPS editing works. Undo and save/reopen after
+replacement still need explicit verification. Replacement
+does not currently carry over animations, crop, or custom picture effects.

@@ -18,10 +18,10 @@ if path.exists():
 else:
     root = ET.Element("jsplugins")
 for child in list(root):
-    if child.get("name") in ("TexKoi", "IguanaButtonProbe"):
+    if child.get("name") in ("TeXKoi", "TexKoi", "IguanaButtonProbe"):
         root.remove(child)
 if args.action == "install":
-    ET.SubElement(root, "jspluginonline", name="TexKoi", type="wpp",
+    ET.SubElement(root, "jspluginonline", name="TeXKoi", type="wpp",
                   url="http://127.0.0.1:3899/", enable="enable_dev", debug="", install="null")
 path.parent.mkdir(parents=True, exist_ok=True)
 temporary = path.with_suffix(".xml.tmp")

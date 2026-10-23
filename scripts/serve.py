@@ -29,7 +29,7 @@ class Handler(SimpleHTTPRequestHandler):
             self.send_error(404)
             return
         # Cross-origin webpages must not be able to invoke the local compiler.
-        if self.headers.get("Origin") not in (None, ORIGIN) or self.headers.get("X-TexKoi") != "render":
+        if self.headers.get("Origin") not in (None, ORIGIN) or self.headers.get("X-TeXKoi") != "render":
             self.send_error(403)
             return
         try:
@@ -52,7 +52,7 @@ if __name__ == "__main__":
     with tempfile.TemporaryDirectory(prefix="texkoi-") as temporary:
         server = ThreadingHTTPServer(("127.0.0.1", 3899), partial(Handler, directory=str(ADDIN)))
         server.render_root = Path(temporary).resolve()
-        print("TexKoi: " + ORIGIN, flush=True)
+        print("TeXKoi: " + ORIGIN, flush=True)
         try:
             server.serve_forever()
         except KeyboardInterrupt:

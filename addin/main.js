@@ -38,7 +38,7 @@ function OnReadProbe() {
 }
 
 function OnNewEquation() {
-  try { probeApp().ShowDialog('http://127.0.0.1:3899/editor.html', 'TexKoi — New equation', 700, 600, true); }
+  try { probeApp().ShowDialog('http://127.0.0.1:3899/editor.html', 'TeXKoi — New equation', 700, 650, true); }
   catch (error) { probeError(error); }
 }
 function storeSource(shape, source) {
@@ -46,4 +46,32 @@ function storeSource(shape, source) {
   for (var i = 0; i < source.length; i++) hex += ('0000' + source.charCodeAt(i).toString(16)).slice(-4);
   shape.Tags.Add('TEXKOI_SOURCE_HEX', hex);
   shape.Tags.Add('TEXKOI_VERSION', '1');
+}
+
+function readTag(shape, name) {
+  for (var i = 1; i <= shape.Tags.Count; i++) {
+    if (String(shape.Tags.Name(i)).toUpperCase() === name) return String(shape.Tags.Value(i));
+  }
+  return '';
+}
+function readSource(shape) {
+  var hex = readTag(shape, 'TEXKOI_SOURCE_HEX') || readTag(shape, 'IGUANA_PROBE_SOURCE_HEX');
+  if (!hex || !/^(?:[0-9a-fA-F]{4})+$/.test(hex)) throw new Error('Select a TeXKoi equation.');
+  var source = '';
+  for (var j = 0; j < hex.length; j += 4) source += String.fromCharCode(parseInt(hex.slice(j, j + 4), 16));
+  return source;
+}
+function selectedEquation() {
+  var selection = probeApp().ActiveWindow.Selection;
+  if (selection.Type !== 2 || selection.ShapeRange.Count !== 1) throw new Error('Select one TeXKoi equation.');
+  if (selection.HasChildShapeRange) throw new Error('Ungroup the equation before editing it.');
+  var shape = selection.ShapeRange.Item(1);
+  readSource(shape);
+  return shape;
+}
+function OnEditEquation() {
+  try {
+    selectedEquation();
+    probeApp().ShowDialog('http://127.0.0.1:3899/editor.html?mode=edit', 'TeXKoi — Edit equation', 700, 650, true);
+  } catch (error) { alert(error.message || String(error)); }
 }
