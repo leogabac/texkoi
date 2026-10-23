@@ -41,6 +41,7 @@ async function check(fail, edit = true) {
     window: {location: {search: edit ? '?mode=edit' : ''}, close() {closed = true;}},
     historyKey: 'test-history', historyStorage: () => ({removeItem() {}}),
     deckState: () => ({}), rememberUpdate() {remembered = true;},
+    activateTeXKoiTab() {},
     probeApp: () => app, selectedEquation: () => original, readSource: shape => shape.source,
     readTag: (shape, key) => tags[key] || '', storeSource(shape, source) {shape.source = source;},
     fetch: async () => ({ok: fail !== 'compile', json: async () => fail === 'compile' ? {error: 'invalid TeX'} :

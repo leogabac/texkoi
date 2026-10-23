@@ -168,6 +168,10 @@ function insertRendered(size) {
       catch (error) { console.warn('Could not close temporary equation presentation:', error); }
     }
   }
+  // Selection/ribbon changes happen after the undo entry has finished and must
+  // never turn an otherwise successful insertion into a rollback.
+  try { shape.Select(); activateTeXKoiTab(); }
+  catch (error) { console.warn('Could not focus the TeXKoi equation:', error); }
   // Closing is separate from insertion: a close failure must not delete the equation.
   try { window.close(); }
   catch (error) { statusBox.textContent = 'Equation inserted. You can close this window.'; }

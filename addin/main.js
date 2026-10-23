@@ -1,4 +1,50 @@
-function OnAddinLoad(ribbonUI) { return true; }
+var texkoiRibbon = null;
+var selectionListenerRegistered = false;
+var tabTimers = [];
+function OnAddinLoad(ribbonUI) {
+  texkoiRibbon = ribbonUI;
+  if (!selectionListenerRegistered) {
+    probeApp().ApiEvent.AddApiEventListener('WindowSelectionChange', OnEquationSelectionChange);
+    selectionListenerRegistered = true;
+  }
+  return true;
+}
+function hasSelectedEquation() {
+  try {
+    var selection = probeApp().ActiveWindow.Selection;
+    if (selection.Type !== 2) return false;
+    for (var i = 1; i <= selection.ShapeRange.Count; i++) {
+      var shape = selection.ShapeRange.Item(i);
+      if (readTag(shape, 'TEXKOI_SOURCE_HEX') || readTag(shape, 'IGUANA_PROBE_SOURCE_HEX')) return true;
+    }
+  } catch (_) {}
+  return false;
+}
+function activateTeXKoiTab() {
+  var ribbon = texkoiRibbon || probeApp().ribbonUI;
+  if (ribbon) {
+    try { ribbon.ActivateTab('texkoiTab'); }
+    catch (_) { ribbon.ActivateTab(); }
+  }
+}
+function queueTeXKoiTab() {
+  tabTimers.forEach(function (timer) { clearTimeout(timer); });
+  tabTimers = [];
+  if (!hasSelectedEquation()) return;
+  try { activateTeXKoiTab(); }
+  catch (error) { console.warn('TeXKoi tab activation failed:', error); }
+  // WPS applies Graphics Tools asynchronously, after a zero-delay callback.
+  // Cover that short native transition at frame-sized intervals, then stop.
+  tabTimers = [16, 32, 48, 64, 80, 96].map(function (delay) {
+    return setTimeout(function () {
+      if (hasSelectedEquation()) {
+        try { activateTeXKoiTab(); }
+        catch (error) { console.warn('TeXKoi tab activation failed:', error); }
+      }
+    }, delay);
+  });
+}
+function OnEquationSelectionChange() { queueTeXKoiTab(); }
 function OnHello() { alert('It works! This is a custom JavaScript button in WPS Presentation.'); }
 function probeApp() {
   if (typeof Application !== 'undefined') return Application;
@@ -38,7 +84,7 @@ function OnReadProbe() {
 }
 
 function OnNewEquation() {
-  try { probeApp().ShowDialog('http://127.0.0.1:3899/editor.html', 'TeXKoi — New equation', 700, 650, true); }
+  try { probeApp().ShowDialog('http://127.0.0.1:3899/editor.html', 'TeXKoi — New equation', 700, 650, true); queueTeXKoiTab(); }
   catch (error) { probeError(error); }
 }
 function storeSource(shape, source) {
@@ -73,6 +119,7 @@ function OnEditEquation() {
   try {
     selectedEquation();
     probeApp().ShowDialog('http://127.0.0.1:3899/editor.html?mode=edit', 'TeXKoi — Edit equation', 700, 650, true);
+    queueTeXKoiTab();
   } catch (error) { alert(error.message || String(error)); }
 }
 

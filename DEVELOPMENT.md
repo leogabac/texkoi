@@ -174,3 +174,21 @@ The guards remain best-effort because WPS undo-stack ownership is not exposed.
 
 `node tests/history.cjs` checks paired and single-entry transitions, refusal
 after a changed snapshot, and stopping after an unexpected first transition.
+
+## Automatic ribbon focus
+
+The add-in listens for WindowSelectionChange and activates the TeXKoi tab
+when a selected shape carries TeXKoi (or legacy probe) source tags. Activation runs immediately and repeats at 16 ms intervals through 96 ms.
+The earlier 80/300 ms retries caused a visible picture-tab flash; replacing them
+with a single zero-delay recheck lost to WPS's later Graphics Tools activation.
+The short retry burst is intended to reclaim focus promptly after that native
+activation, but a completely flash-free switch is not established.
+The callback rechecks current selection, so selecting another object cancels
+the queued activation. The listener is registered once per ribbon context.
+After insertion/update the result is selected and the TeXKoi tab activated
+outside the completed undo entry. Manual tab choices are not continuously
+overridden. `node tests/ribbon.cjs` verifies selection behavior with a mock host;
+actual WPS tab timing and the existing undo workaround still need a live check.
+
+The original delayed activation worked in WPS, but flashed; the zero-delay
+version failed to retain the tab. The user accepted the frame-spaced version as good enough in live WPS testing.
