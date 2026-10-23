@@ -4,13 +4,41 @@ from http.server import ThreadingHTTPServer, SimpleHTTPRequestHandler
 from pathlib import Path
 import json
 import tempfile
+import xml.etree.ElementTree as ET
 from render import render
+from theme import theme_css
 
 ADDIN = Path(__file__).resolve().parents[1] / "addin"
 ORIGIN = "http://127.0.0.1:3899"
+ET.register_namespace("", "http://schemas.microsoft.com/office/2006/01/customui")
 
 class Handler(SimpleHTTPRequestHandler):
+    def end_headers(self):
+        self.send_header("Cache-Control", "no-store")
+        super().end_headers()
+
     def do_GET(self):
+        if self.path.split("?", 1)[0] == "/wps-theme.css":
+            payload = theme_css().encode()
+            self.send_response(200)
+            self.send_header("Content-Type", "text/css")
+            self.send_header("Content-Length", str(len(payload)))
+            self.end_headers()
+            self.wfile.write(payload)
+            return
+        if self.path.split("?", 1)[0] == "/ribbon.xml" and self.server.development:
+            root = ET.parse(ADDIN / "ribbon.xml").getroot()
+            ns = "{http://schemas.microsoft.com/office/2006/01/customui}"
+            tab = root.find(".//" + ns + "tab")
+            group = ET.SubElement(tab, ns + "group", id="diagnostics", label="Development")
+            ET.SubElement(group, ns + "button", id="undoDiagnostics", label="Undo diagnostics", onAction="OnUndoDiagnostics")
+            payload = ET.tostring(root, encoding="utf-8", xml_declaration=True)
+            self.send_response(200)
+            self.send_header("Content-Type", "application/xml")
+            self.send_header("Content-Length", str(len(payload)))
+            self.end_headers()
+            self.wfile.write(payload)
+            return
         if self.path.startswith("/renders/"):
             relative = self.path[len("/renders/"):]
             target = (self.server.render_root / relative).resolve()
@@ -48,14 +76,21 @@ class Handler(SimpleHTTPRequestHandler):
         self.end_headers()
         self.wfile.write(payload)
 
-if __name__ == "__main__":
+def run(development=False, on_ready=None):
     with tempfile.TemporaryDirectory(prefix="texkoi-") as temporary:
         server = ThreadingHTTPServer(("127.0.0.1", 3899), partial(Handler, directory=str(ADDIN)))
         server.render_root = Path(temporary).resolve()
-        print("TeXKoi: " + ORIGIN, flush=True)
+        server.development = development
         try:
+            if on_ready:
+                on_ready()
+            print("TeXKoi: " + ORIGIN, flush=True)
+            print("Leave this terminal running. Open WPS Presentation; restart WPS if the ribbon changed. Ctrl+C stops TeXKoi.", flush=True)
             server.serve_forever()
         except KeyboardInterrupt:
             pass
         finally:
             server.server_close()
+
+if __name__ == "__main__":
+    run()

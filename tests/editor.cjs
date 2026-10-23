@@ -2,8 +2,8 @@ const fs = require('fs'), vm = require('vm'), assert = require('assert');
 const code = fs.readFileSync(require('path').join(__dirname, '../addin/editor.js'), 'utf8');
 async function check(fail, edit = true) {
   const controls = {};
-  for (const id of ['source', 'render', 'insert', 'status', 'format', 'size', 'preview']) {
-    controls[id] = {value: id === 'size' ? '28' : id === 'format' ? 'svg' : 'x', appendChild() {}};
+  for (const id of ['source', 'render', 'insert', 'status', 'format', 'size', 'preview', 'error-details', 'error-log']) {
+    controls[id] = {value: id === 'size' ? '28' : id === 'format' ? 'svg' : 'x', appendChild() {}, focus() {}};
   }
   const tags = {TEXKOI_SIZE_PT: '28', TEXKOI_FORMAT: 'SVG', TEXKOI_NATURAL_WIDTH: '20', TEXKOI_NATURAL_HEIGHT: '10'};
   let originalDeleted = false, replacementDeleted = false, closed = false, stagingClosed = false;
@@ -37,7 +37,7 @@ async function check(fail, edit = true) {
     assert.equal(withWindow, 0); return staging;
   }}};
   const context = {console, URLSearchParams,
-    document: {getElementById: id => controls[id], querySelector: () => ({}), createElement: () => ({})},
+    document: {getElementById: id => controls[id], querySelector: () => ({}), createElement: () => ({style: {}}), addEventListener() {}},
     window: {location: {search: edit ? '?mode=edit' : ''}, close() {closed = true;}},
     historyKey: 'test-history', historyStorage: () => ({removeItem() {}}),
     deckState: () => ({}), rememberUpdate() {remembered = true;},

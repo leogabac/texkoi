@@ -3,7 +3,7 @@ const code = fs.readFileSync(require('path').join(__dirname, '../addin/main.js')
 let selection, listeners = 0, activations = 0, pending = new Map(), sequence = 0;
 const app = {ApiEvent: {AddApiEventListener(name, callback) {assert.equal(name, 'WindowSelectionChange');listeners++;}},
   ActiveWindow: {get Selection() {return selection;}}};
-const ctx = {console, Application: app, setTimeout(fn, delay) {assert(delay >= 16 && delay <= 96);pending.set(++sequence, fn);return sequence;}, clearTimeout(id) {pending.delete(id);}};
+const ctx = {console, window: {location: {origin: 'http://127.0.0.1:3899'}}, Application: app, setTimeout(fn, delay) {assert(delay >= 16 && delay <= 96);pending.set(++sequence, fn);return sequence;}, clearTimeout(id) {pending.delete(id);}};
 vm.createContext(ctx);vm.runInContext(code,ctx);
 const ribbon = {ActivateTab(id) {assert.equal(id, 'texkoiTab');activations++;}};
 ctx.OnAddinLoad(ribbon);ctx.OnAddinLoad(ribbon);assert.equal(listeners,1);
@@ -17,3 +17,9 @@ select(false);flush();assert.equal(activations,7);
 select(true);select(false);flush();assert.equal(activations,8);
 selection={Type:0};ctx.OnEquationSelectionChange();flush();assert.equal(activations,8);
 console.log('Ribbon listener deduplication, equation activation, and changed/non-equation selection checks passed');
+
+for (const [id, filename] of Object.entries({newEquation:'new-equation',editEquation:'edit-equation',undoEquationUpdate:'undo-update',redoEquationUpdate:'redo-update'})) {
+ assert.equal(ctx.GetRibbonImage({Id:id}), 'icons/' + filename + '.png');
+ assert(fs.existsSync(require('path').join(__dirname, '../addin/icons/', filename + '.png')));
+}
+assert.equal(ctx.GetRibbonImage({Id:'unknown'}), '');

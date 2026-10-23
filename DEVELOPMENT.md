@@ -3,53 +3,56 @@
 A LaTeX extension for WPS Presentation on Linux, inspired by
 [IguanaTex](https://github.com/Jonathan-LeRoux/IguanaTex).
 
-This is an early LaTeX rendering prototype. It also retains the initial test
-image and metadata controls for development. The original
-probe was tested interactively on Arch Linux with `wps-office-cn 12.1.2.29183-1`:
+This is an early LaTeX rendering prototype. The initial test image and probe
+handlers have been retired. The original probe was tested interactively on Arch Linux with `wps-office-cn 12.1.2.29183-1`:
 the ribbon callback, image insertion, and source recovery after saving/reopening
 `.pptx` all worked. The repository version was subsequently confirmed working by the user as well.
 
-## Run the prototype
+## Running from a checkout
 
-Requires Python 3 and a WPS Linux installation with JavaScript add-in support.
-No Python packages or Node dependencies are needed.
+Use Python 3.10 or newer. No Python or Node packages are needed for normal use.
+Required executables: `wpp`, `latex`, `pdflatex`, `dvisvgm`, `pdftocairo`, and
+`kpsewhich`. The TeX installation must provide `standalone.cls`, `amsmath.sty`,
+and `amssymb.sty`. Install TeX Live and Poppler with your distribution's package
+manager; package splits vary. The launcher reports missing tools and TeX files.
 
-```bash
-cd /home/holo/projects/texkoi
-python scripts/register.py install
-python scripts/serve.py
-```
-
-Leave the server running, fully restart WPS, and open a presentation. The early probe used **Insert test image** and **Read source** buttons, now
-removed from the ribbon. Its persistence check was: Save as `.pptx`, close and reopen,
-select the image, and click **Read source**. The expected source is:
-
-```latex
-\alpha + \beta = \Gamma
-E = mc^{2}
-```
-
-The image is embedded, not linked. Source uses hex-encoded UTF-16 code units
-because presentation tags may normalize case. Reading the original probe's tag
-is also supported. This is a temporary metadata format.
-
-The image path in `addin/main.js` currently points to this checkout. If you move
-the repository, update that path. The server listens only on `127.0.0.1:3899`;
-stop the old probe server before starting it.
-
-Registration backs up an existing `publish.xml`, preserves unrelated add-ins,
-and replaces the temporary `IguanaButtonProbe` entry. To remove TeXKoi:
+From the checkout, run `./texkoi`. The launcher resolves its own location, so it
+also works from another directory using an absolute path. Startup checks
+requirements, binds the loopback server, and registers TeXKoi if needed. It
+preserves unrelated WPS add-ins and backs up configuration before actual changes.
+Repeated registration is a no-op. First registration requires a WPS restart.
 
 ```bash
-python scripts/register.py uninstall
+./texkoi                         # check, register, serve
+./texkoi doctor                  # check tools and TeX packages
+./texkoi doctor --render-check   # also compile SVG and PNG samples
+./texkoi install                 # register without starting the server
+./texkoi uninstall               # remove only TeXKoi registration
+./texkoi --dev                   # serve with Undo diagnostics on the ribbon
 ```
 
-Restart WPS and stop the server with Ctrl+C. Backups remain next to `publish.xml`.
+Leave the terminal open while using the add-in. Ctrl+C stops the server; it
+leaves registration installed for the next run. The server listens only on
+`127.0.0.1:3899`. If another server owns that port, startup reports the conflict
+before modifying registration. Stop the previous server in its terminal and
+retry. Switching development mode requires restarting WPS to reload the ribbon.
+No WPS windows are automatically closed or restarted.
 
-## Next milestone
+The renderer and add-in no longer depend on a fixed checkout path. The retired
+probe image and its handlers have been removed. Diagnostics remain accessible
+at `/diagnostics.html` for development, but the normal ribbon hides them.
+The server sends no-store headers to avoid stale development assets.
 
-Edit and replace selected equations while preserving their position and size. Check vector image support, undo,
-copy/paste, and metadata persistence before settling the document format.
+Run `python -m unittest discover -s tests -p 'test_*.py'` for setup checks, and
+`node tests/editor.cjs`, `node tests/history.cjs`, and `node tests/ribbon.cjs`
+for simulated-host checks. Native WPS behavior still needs interactive tests.
+
+## Validation baseline
+
+On Arch Linux with `wps-office-cn 12.1.2.29183-1`, the user confirmed SVG/PNG
+rendering, insertion, editing, source/settings persistence after save/reopen,
+the dedicated undo/redo workaround, and automatic ribbon focus. The launcher
+and removal of development controls are a subsequent setup change.
 
 ## License
 
@@ -92,9 +95,8 @@ the old bounding box. Changing the size control scales relative to that state.
 Older equations without natural-size tags are compiled once more to recover
 the original dimensions.
 
-The ribbon includes **New equation**, **Edit equation**, and dedicated equation
-history actions. The development diagnostics are temporarily exposed; early
-probe helpers remain in the code for reference.
+The normal ribbon includes **New equation**, **Edit equation**, and dedicated
+equation history actions. Development diagnostics require `./texkoi --dev`.
 
 Run `node tests/editor.cjs` for simulated-host checks of source restoration,
 manual scaling, successful replacement, and original preservation on compiler
@@ -142,7 +144,7 @@ Investigation history:
   regeneration from its checked source to restore image/source agreement.
 - Direct AddPicture on the target was replaced with staging and native paste.
 
-The temporary **Undo diagnostics** development panel remains available for
+The **Undo diagnostics** development panel is available in `--dev` mode for
 API reports and disposable-slide paste tests. These tests overwrite the clipboard.
 
 ### Why dedicated equation history buttons exist
@@ -192,3 +194,65 @@ actual WPS tab timing and the existing undo workaround still need a live check.
 
 The original delayed activation worked in WPS, but flashed; the zero-delay
 version failed to retain the tab. The user accepted the frame-spaced version as good enough in live WPS testing.
+
+Launcher verification: setup regression checks and all three JavaScript checks
+passed. `doctor --render-check` found all tools/packages and compiled both SVG
+and PNG. Live loopback HTTP checks confirmed normal/development ribbon modes,
+no-store headers, and SVG rendering/delivery. An occupied-port test failed with
+a clear error before writing registration. The live service was then restarted
+through `./texkoi`; WPS must be restarted to see the normal ribbon.
+
+## v0.1 editor scope
+
+The editor uses a compact source area, inline size/format controls, a centered
+preview, and a sticky footer containing only Render preview and Render & insert
+(or Render & update). Preview width reflects the chosen point size, fitting
+within the available width. Changed source/format dims the old preview until
+rendering again. During rendering controls are disabled and the action displays
+progress. Errors show a concise summary with expandable compiler output.
+
+Ctrl+Enter renders and inserts/updates; Ctrl+Shift+Enter previews; Escape closes
+when idle. Source is focused on opening. Preambles, installation packaging, and
+additional equation options remain deferred. This does not constitute a v0.1
+release or claim native offline installation is complete.
+
+Existing editor/history/ribbon/setup checks pass with the revised UI. A browser
+inspection confirmed labels and layout; the ordinary browser correctly shows
+an unavailable-host message and disables rendering because it is outside WPS.
+The revised layout and shortcuts still need a live WPS check.
+
+## Editor theme integration
+
+The helper serves `/wps-theme.css` from the current user's WPS Linux skin
+preference in `$XDG_CONFIG_HOME/Kingsoft/Office.conf` (with lowercase filename
+fallback). It reads only the current skin and follow-system keys; it does not
+modify WPS configuration or return its contents. Known dark/light skin names
+select corresponding UI colors. Unknown, unavailable, or follow-system settings
+fall back to `prefers-color-scheme`. The stylesheet loads before first paint and
+refreshes every two seconds while visible and on focus. It follows the saved
+preference; changes held only in WPS memory cannot be detected this way.
+
+This is a compatibility implementation based on inspected configuration, not a
+documented WPS theme API. Controls and surfaces adapt; the equation preview
+remains white to display black TeX output without changing inserted equations.
+Dark/light and system-fallback config checks passed; live WPS switching still
+needs verification.
+
+## Ribbon icons
+
+The four main actions use original blue outline icons: sigma-plus, sigma-pencil,
+and matching undo/redo arrows. Editable SVG sources live in `addin/icons/`;
+64-pixel transparent PNGs are served through the GetRibbonImage callback for
+WPS ribbon compatibility. All four buttons use large sizing; history labels
+are shortened to Undo update / Redo update with explanatory tooltips. The icon
+color was checked on light and dark backgrounds. Assets are bundled, without
+external fonts or icon libraries; `rsvg-convert` was used during authoring only
+and is not a runtime dependency. Native ribbon display needs a WPS restart.
+
+Ribbon icon URL correction: WPS prepends its add-in base URL to the string
+returned by GetRibbonImage. Returning an absolute HTTP URL produced live
+requests for `/http://127.0.0.1:3899/icons/...` and 404 placeholders. The callback
+now returns relative `icons/<name>.png` paths; regression checks enforce this.
+
+The user confirmed the corrected relative icon paths render correctly in WPS.
+The polished editor and WPS-config theme adaptation were also accepted in live use.

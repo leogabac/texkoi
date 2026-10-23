@@ -5,6 +5,23 @@ var insertButton = document.getElementById('insert');
 var statusBox = document.getElementById('status');
 var formatBox = document.getElementById('format');
 var sizeBox = document.getElementById('size');
+var errorDetails = document.getElementById('error-details');
+var errorLog = document.getElementById('error-log');
+function showStatus(message, error) {
+  statusBox.textContent = message;
+  statusBox.className = error ? 'error' : '';
+  if (errorDetails) { errorDetails.hidden = true; errorDetails.open = false; }
+}
+function showError(error) {
+  var message = error.message || String(error);
+  var lines = message.split('\n');
+  var texError = lines.filter(function (line) { return /^!/.test(line); })[0];
+  showStatus(texError ? texError.replace(/^!\s*/, '') : (lines.length > 3 ? 'Rendering failed. See compiler details below.' : message), true);
+  if (errorDetails && errorLog && lines.length > 3) {
+    errorLog.textContent = message;
+    errorDetails.hidden = false;
+  }
+}
 var editTarget = null;
 var targetSlide = null;
 var targetWindow = null;
@@ -32,10 +49,12 @@ try {
     };
     document.querySelector('h1').textContent = 'Edit equation';
     insertButton.textContent = 'Render & update';
+    var shortcut = document.querySelector('.shortcut');
+    if (shortcut) shortcut.textContent = 'Ctrl+Enter to update';
   }
 } catch (error) {
   initializationError = error;
-  statusBox.textContent = error.message || String(error);
+  showError(new Error('Open the editor from WPS Presentation with a slide selected.'));
   renderButton.disabled = insertButton.disabled = true;
 }
 async function compileSource(source, format) {
@@ -50,9 +69,12 @@ function setBusy(busy) {
   });
 }
 async function runAction(insert) {
-  if (initializationError) return;
+  if (initializationError || renderButton.disabled) return;
   setBusy(true);
-  statusBox.textContent = 'Rendering…';
+  showStatus('Rendering…');
+  renderButton.textContent = insert ? 'Render preview' : 'Rendering…';
+  var actionLabel = editState ? 'Render & update' : 'Render & insert';
+  insertButton.textContent = insert ? 'Rendering…' : actionLabel;
   try {
     var size = Number(sizeBox.value);
     if (!isFinite(size) || size < 6 || size > 144) throw new Error('Choose a size between 6 and 144 pt.');
@@ -62,10 +84,12 @@ async function runAction(insert) {
     var image = document.createElement('img');
     image.src = result.url;
     image.alt = 'Rendered equation';
+    image.style.width = (result.width * size / 10 * 96 / 72) + 'px';
     var preview = document.getElementById('preview');
     preview.textContent = '';
+    preview.className = 'preview';
     preview.appendChild(image);
-    if (!insert) { statusBox.textContent = 'Preview ready.'; return; }
+    if (!insert) { showStatus('Preview ready.'); return; }
     if (editState && (!editState.naturalWidth || !editState.naturalHeight)) {
       // Older equations predate natural-size tags; render once to recover their scale.
       var original = await compileSource(editState.source, editState.format);
@@ -73,8 +97,12 @@ async function runAction(insert) {
       editState.naturalHeight = original.height;
     }
     insertRendered(size);
-  } catch (error) { statusBox.textContent = error.message; }
-  finally { setBusy(false); }
+  } catch (error) { showError(error); }
+  finally {
+    setBusy(false);
+    renderButton.textContent = 'Render preview';
+    insertButton.textContent = actionLabel;
+  }
 }
 renderButton.onclick = function () { return runAction(false); };
 insertButton.onclick = function () { return runAction(true); };
@@ -176,3 +204,19 @@ function insertRendered(size) {
   try { window.close(); }
   catch (error) { statusBox.textContent = 'Equation inserted. You can close this window.'; }
 }
+
+function markPreviewStale() {
+  if (!rendered) return;
+  document.getElementById('preview').className = 'preview stale';
+  showStatus('Source or format changed. Render again to refresh the preview.');
+}
+sourceBox.oninput = markPreviewStale;
+formatBox.onchange = markPreviewStale;
+document.addEventListener('keydown', function (event) {
+  if ((event.ctrlKey || event.metaKey) && event.key === 'Enter') {
+    event.preventDefault();
+    runAction(!event.shiftKey);
+  }
+  if (event.key === 'Escape' && !renderButton.disabled) window.close();
+});
+if (!initializationError) sourceBox.focus();

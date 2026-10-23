@@ -13,8 +13,20 @@ source attached. The workflow has been tested interactively in WPS on Linux.
 Selected equations can be reopened for editing and regenerated in place.
 The edit/update workflow has also been tested interactively.
 
-See [development notes](DEVELOPMENT.md) for setup, the tested WPS build, and
-implementation details.
+## Run
+
+With WPS Presentation, Python 3.10+, TeX Live, dvisvgm, and Poppler installed:
+
+```bash
+./texkoi
+```
+
+This checks dependencies, registers the add-in, and starts its local server.
+Leave the terminal running and open WPS Presentation. Restart WPS after first
+registration or a ribbon change. Use `./texkoi doctor --render-check` to check
+both SVG and PNG rendering.
+
+See [development notes](DEVELOPMENT.md) for setup details and the tested build.
 
 ## Known undo/redo issue
 
