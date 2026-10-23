@@ -1,0 +1,9 @@
+<!doctype html><html><head><meta charset="utf-8"><title>TeXKoi undo diagnostics</title></head>
+<body style="font:15px system-ui;margin:24px"><h2>Undo API availability</h2>
+<p>This only reads API availability. It does not change the presentation or call undo methods. Copy the report below.</p>
+<textarea id="report" readonly style="width:100%;height:380px;font:13px monospace"></textarea>
+<p>Use a disposable slide containing exactly one selected TeXKoi equation. These tests copy it to the clipboard and change the slide.</p>
+<button id="paste">Test paste only</button>
+<button id="replace">Test paste + delete original</button>
+<p>After the dialog closes, press Ctrl+Z once. Reopen diagnostics to read the shape count, then close it and test Ctrl+Y. Start each test from one equation.</p>
+<script src="main.js"></script><script src="diagnostics.js"></script></body></html>

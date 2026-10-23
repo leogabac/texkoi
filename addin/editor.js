@@ -7,10 +7,14 @@ var formatBox = document.getElementById('format');
 var sizeBox = document.getElementById('size');
 var editTarget = null;
 var targetSlide = null;
+var targetWindow = null;
+var targetPresentation = null;
 var editState = null;
 var initializationError = null;
 try {
-  targetSlide = probeApp().ActiveWindow.View.Slide;
+  targetWindow = probeApp().ActiveWindow;
+  targetPresentation = targetWindow.Presentation;
+  targetSlide = targetWindow.View.Slide;
   if (new URLSearchParams(window.location.search).get('mode') === 'edit') {
     editTarget = selectedEquation();
     sourceBox.value = readSource(editTarget);
@@ -76,7 +80,17 @@ renderButton.onclick = function () { return runAction(false); };
 insertButton.onclick = function () { return runAction(true); };
 function insertRendered(size) {
   var shape;
+  var staging = null;
+  var undoOpen = false;
+  var committed = false;
+  var app = probeApp();
+  var beforeHistory = null;
   try {
+    // History is optional: unsupported diagnostics must not break equation insertion.
+    try {
+      historyStorage().removeItem(historyKey);
+      if (editTarget) beforeHistory = deckState();
+    } catch (error) { console.warn('Equation history unavailable:', error); }
     var slide = targetSlide;
     var result = rendered.result;
     var scale = size / 10;
@@ -92,25 +106,67 @@ function insertRendered(size) {
       width *= editState.width / (editState.naturalWidth * editState.size / 10);
       height *= editState.height / (editState.naturalHeight * editState.size / 10);
     }
-    shape = slide.Shapes.AddPicture(result.path, 0, -1, editState ? editState.left : 100, editState ? editState.top : 150, width, height);
-    storeSource(shape, rendered.source);
-    shape.Tags.Add('TEXKOI_SIZE_PT', String(size));
-    shape.Tags.Add('TEXKOI_FORMAT', result.format);
-    shape.Tags.Add('TEXKOI_NATURAL_WIDTH', String(result.width));
-    shape.Tags.Add('TEXKOI_NATURAL_HEIGHT', String(result.height));
+    // AddPicture is not reliably undoable in WPS. Prepare the complete object
+    // in a separate deck so the target sees only a native paste and deletion.
+    staging = app.Presentations.Add(0);
+    staging.PageSetup.SlideWidth = targetPresentation.PageSetup.SlideWidth;
+    staging.PageSetup.SlideHeight = targetPresentation.PageSetup.SlideHeight;
+    var stagingSlide = staging.Slides.Add(1, 12);
+    var prepared = stagingSlide.Shapes.AddPicture(result.path, 0, -1,
+      editState ? editState.left : 100, editState ? editState.top : 150, width, height);
+    storeSource(prepared, rendered.source);
+    prepared.Tags.Add('TEXKOI_SIZE_PT', String(size));
+    prepared.Tags.Add('TEXKOI_FORMAT', result.format);
+    prepared.Tags.Add('TEXKOI_NATURAL_WIDTH', String(result.width));
+    prepared.Tags.Add('TEXKOI_NATURAL_HEIGHT', String(result.height));
+    if (editState) prepared.Rotation = editState.rotation;
+    var preparedLeft = prepared.Left;
+    var preparedTop = prepared.Top;
+    prepared.Copy();
+    // Finish staging before opening the target undo entry. Never mark the user's deck saved.
+    staging.Saved = -1;
+    staging.Close();
+    staging = null;
+    targetWindow.Activate();
+    // WPS 12.1.2.29183 still records this update as two undo steps despite
+    // these boundaries. Observed workaround: Ctrl+Z twice restores the old
+    // equation; Ctrl+Y twice restores the update. One undo may show both.
+    // Don't automatically double undo: other edits may be on top of the stack.
+    // This is a tested workaround for this build, not a guaranteed API contract.
+    app.StartNewUndoEntry();
+    undoOpen = true;
+    shape = slide.Shapes.Paste().Item(1);
+    // Check clipboard fidelity before deleting the original, without rewriting tags.
+    if (readSource(shape) !== rendered.source) throw new Error('Pasted equation lost its source metadata.');
+    if (Math.abs(shape.Width - width) > 0.1 || Math.abs(shape.Height - height) > 0.1 ||
+        Math.abs(shape.Left - preparedLeft) > 0.1 || Math.abs(shape.Top - preparedTop) > 0.1) {
+      throw new Error('WPS changed the equation geometry during paste.');
+    }
     if (editState) {
-      shape.Rotation = editState.rotation;
       // Move just above the original; deleting it leaves the replacement at its old layer.
       var moves = slide.Shapes.Count;
       while (shape.ZOrderPosition > editState.z + 1 && moves-- > 0) shape.ZOrder(3);
       if (shape.ZOrderPosition !== editState.z + 1) throw new Error('Could not preserve the equation layer.');
     }
-    shape.Select();
     if (editTarget) editTarget.Delete();
+    committed = true;
+    if (beforeHistory) {
+      try { rememberUpdate(beforeHistory, deckState(), targetSlide.SlideID); }
+      catch (error) { console.warn('Could not record equation history:', error); }
+    }
     statusBox.textContent = editState ? 'Equation updated.' : 'Equation inserted.';
   } catch (error) {
-    if (shape) { try { shape.Delete(); } catch (_) {} }
+    if (shape && !committed) { try { shape.Delete(); } catch (_) {} }
     throw new Error('Insertion failed: ' + (error.message || error));
+  } finally {
+    if (undoOpen) {
+      try { app.StartNewUndoEntry(); }
+      catch (error) { console.warn('Could not finish undo entry:', error); }
+    }
+    if (staging) {
+      try { staging.Saved = -1; staging.Close(); }
+      catch (error) { console.warn('Could not close temporary equation presentation:', error); }
+    }
   }
   // Closing is separate from insertion: a close failure must not delete the equation.
   try { window.close(); }

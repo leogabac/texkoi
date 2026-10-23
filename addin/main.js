@@ -75,3 +75,9 @@ function OnEditEquation() {
     probeApp().ShowDialog('http://127.0.0.1:3899/editor.html?mode=edit', 'TeXKoi — Edit equation', 700, 650, true);
   } catch (error) { alert(error.message || String(error)); }
 }
+
+function OnUndoDiagnostics() {
+  try {
+    probeApp().ShowDialog('http://127.0.0.1:3899/diagnostics.html', 'TeXKoi — Undo diagnostics', 700, 600, true);
+  } catch (error) { alert(error.message || String(error)); }
+}

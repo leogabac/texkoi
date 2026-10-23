@@ -5,5 +5,9 @@
       <button id="newEquation" label="New equation" size="large" onAction="OnNewEquation"/>
       <button id="editEquation" label="Edit equation" size="large" onAction="OnEditEquation"/>
     </group>
-  </tab></tabs></ribbon>
+  <group id="equationHistory" label="Equation history">
+    <button id="undoEquationUpdate" label="Undo equation update" onAction="OnUndoEquationUpdate"/>
+    <button id="redoEquationUpdate" label="Redo equation update" onAction="OnRedoEquationUpdate"/>
+  </group>
+  <group id="diagnostics" label="Development"><button id="undoDiagnostics" label="Undo diagnostics" onAction="OnUndoDiagnostics"/></group></tab></tabs></ribbon>
 </customUI>

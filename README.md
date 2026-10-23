@@ -16,6 +16,19 @@ The edit/update workflow has also been tested interactively.
 See [development notes](DEVELOPMENT.md) for setup, the tested WPS build, and
 implementation details.
 
+## Known undo/redo issue
+
+On the tested WPS Linux build (`12.1.2.29183`), updating an equation requires
+**Ctrl+Z twice** to fully undo and **Ctrl+Y twice** to fully redo. One undo can
+leave both the old and new equations visible.
+
+TeXKoi provides **Undo equation update** and **Redo equation update** as a
+workaround. Use them immediately after updating, before unrelated edits. They
+track only the latest update in the current add-in session and check state
+between native commands. They do not replace WPS's keyboard shortcuts. See the
+[development notes](DEVELOPMENT.md#undoredo-workaround) for the suspected cause,
+guard limitations, and implementation details.
+
 ## AI disclosure
 
 TeXKoi is being developed with AI assistance from OpenAI Codex, using GPT-6.1 Sol.
