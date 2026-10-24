@@ -256,3 +256,64 @@ now returns relative `icons/<name>.png` paths; regression checks enforce this.
 
 The user confirmed the corrected relative icon paths render correctly in WPS.
 The polished editor and WPS-config theme adaptation were also accepted in live use.
+
+## Development versus installed identity
+
+The server-backed checkout registers as **TeXKoi Dev**, serves a separate
+`texkoiDevTab`, and uses a separate session-history key. The project, source
+ribbon, and future local package retain **TeXKoi**. The server supplies its Dev
+profile at `/profile.js`; callbacks resolve editor/diagnostic URLs relative to
+the current page, so the transport need not be hardcoded. Startup migrates old
+online localhost registrations, while preserving a local regular TeXKoi entry.
+`./texkoi install/uninstall` currently manage only the Dev registration.
+
+See [offline installation investigation](OFFLINE_INSTALLATION.md) for the
+packaging experiments, rejected launch paths, and current companion test.
+
+## Installed companion test
+
+The Linux companion uses desktop login autostart rather than systemd. The
+Python rendering/HTTP core is independent of that mechanism; Windows/macOS
+installation, startup and WPS behavior are not implemented or tested.
+
+This interim installer requires the existing local TeXKoi package installed
+through WPS's official publish flow. It updates that package in place, retaining
+the WPS-generated registration and its probe version. It is not a distributable
+v0.1 installer yet. It copies the runtime outside the checkout, adds desktop
+application/login-startup entries, and starts the companion. Source edits do
+not update the installed runtime automatically.
+
+```bash
+python scripts/companion_install.py install
+python scripts/companion_install.py status
+python scripts/companion_install.py stop
+python scripts/companion_install.py start
+python scripts/companion_install.py uninstall
+```
+
+Installation snapshots replaced WPS files and desktop entries; uninstall stops
+the companion and restores those files. It preserves the WPS package itself,
+other add-ins, and TeXKoi Dev. Its runtime/config/logs live under the XDG data
+directory, normally `~/.local/share/texkoi/companion`. The private token is in
+config.json and the installed profile.js: do not paste those files into logs.
+
+The local ribbon opens the companion-served editor on port 3901. Both editor
+and API use the same origin, with a random 256-bit path token; compiler POSTs
+still require the custom header and reject foreign origins. Host checks block
+foreign Host headers. Request URLs are omitted from logs. The Dev server keeps
+port 3899 and its own profile/history. Relative editor/theme/render URLs work
+in both configurations.
+
+Validation: eight Python checks cover registration/theme, installer restoration,
+private routes, hostile host/origin requests, regular profile/editor delivery,
+and actual SVG/PNG compilation plus image fetching. Existing JavaScript
+insertion/history/ribbon checks pass. The installed copied runtime rendered
+and served SVG and PNG with ports 3899 and 3990 absent. During this agent run
+the companion is kept in a managed execution session for the WPS test; actual
+desktop login startup remains to be tested after logout/login. WPS editor
+opening, insertion, editing and history through the installed profile remain
+pending interactive verification. No commit has been made for this work.
+
+The user confirmed the installed editor workflow, then rebooted the PC and
+confirmed TeXKoi works without manually starting the companion. Desktop login
+autostart is therefore verified on this machine.

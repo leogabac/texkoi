@@ -21,7 +21,9 @@ With WPS Presentation, Python 3.10+, TeX Live, dvisvgm, and Poppler installed:
 ./texkoi
 ```
 
-This checks dependencies, registers the add-in, and starts its local server.
+This starts the server-backed **TeXKoi Dev** add-in after checking dependencies
+and registration. **TeXKoi** is the separate installed profile. An experimental companion provides
+local rendering with desktop login startup; its WPS integration is being tested.
 Leave the terminal running and open WPS Presentation. Restart WPS after first
 registration or a ribbon change. Use `./texkoi doctor --render-check` to check
 both SVG and PNG rendering.

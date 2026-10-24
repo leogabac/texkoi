@@ -31,7 +31,7 @@ def dependency_errors():
     return errors
 
 def main(argv=None):
-    parser = argparse.ArgumentParser(description="TeXKoi: local LaTeX equations for WPS Presentation")
+    parser = argparse.ArgumentParser(description="TeXKoi Dev: server-backed development add-in for WPS Presentation")
     parser.add_argument("command", nargs="?", default="start", choices=("start", "doctor", "install", "uninstall"))
     parser.add_argument("--dev", action="store_true", help="show development diagnostics in the ribbon")
     parser.add_argument("--render-check", action="store_true", help="doctor: compile a sample in SVG and PNG")

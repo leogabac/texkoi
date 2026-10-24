@@ -26,12 +26,23 @@ class Handler(SimpleHTTPRequestHandler):
             self.end_headers()
             self.wfile.write(payload)
             return
-        if self.path.split("?", 1)[0] == "/ribbon.xml" and self.server.development:
+        if self.path.split("?", 1)[0] == "/profile.js":
+            payload = b"var texkoiProfile = {name:'TeXKoi Dev', tabId:'texkoiDevTab', id:'texkoi-dev', mode:'server'};"
+            self.send_response(200)
+            self.send_header("Content-Type", "application/javascript")
+            self.send_header("Content-Length", str(len(payload)))
+            self.end_headers()
+            self.wfile.write(payload)
+            return
+        if self.path.split("?", 1)[0] == "/ribbon.xml":
             root = ET.parse(ADDIN / "ribbon.xml").getroot()
             ns = "{http://schemas.microsoft.com/office/2006/01/customui}"
             tab = root.find(".//" + ns + "tab")
-            group = ET.SubElement(tab, ns + "group", id="diagnostics", label="Development")
-            ET.SubElement(group, ns + "button", id="undoDiagnostics", label="Undo diagnostics", onAction="OnUndoDiagnostics")
+            tab.set("label", "TeXKoi Dev")
+            tab.set("id", "texkoiDevTab")
+            if self.server.development:
+                group = ET.SubElement(tab, ns + "group", id="diagnostics", label="Development")
+                ET.SubElement(group, ns + "button", id="undoDiagnostics", label="Undo diagnostics", onAction="OnUndoDiagnostics")
             payload = ET.tostring(root, encoding="utf-8", xml_declaration=True)
             self.send_response(200)
             self.send_header("Content-Type", "application/xml")
@@ -57,7 +68,7 @@ class Handler(SimpleHTTPRequestHandler):
             self.send_error(404)
             return
         # Cross-origin webpages must not be able to invoke the local compiler.
-        if self.headers.get("Origin") not in (None, ORIGIN) or self.headers.get("X-TeXKoi") != "render":
+        if self.headers.get("Origin") not in (None, getattr(self.server, "origin", ORIGIN)) or self.headers.get("X-TeXKoi") != "render":
             self.send_error(403)
             return
         try:
@@ -66,6 +77,7 @@ class Handler(SimpleHTTPRequestHandler):
                 raise ValueError("Invalid request size")
             data = json.loads(self.rfile.read(length))
             result = render(data.get("source"), self.server.render_root, data.get("format", "svg"))
+            result["url"] = getattr(self.server, "public_base", "") + result["url"]
             status = 200
         except (ValueError, TypeError, AttributeError) as error:
             result, status = {"error": str(error)}, 400
@@ -84,7 +96,7 @@ def run(development=False, on_ready=None):
         try:
             if on_ready:
                 on_ready()
-            print("TeXKoi: " + ORIGIN, flush=True)
+            print("TeXKoi Dev: " + ORIGIN, flush=True)
             print("Leave this terminal running. Open WPS Presentation; restart WPS if the ribbon changed. Ctrl+C stops TeXKoi.", flush=True)
             server.serve_forever()
         except KeyboardInterrupt:

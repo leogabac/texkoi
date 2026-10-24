@@ -1,5 +1,5 @@
 // Session-only, single-update history. Native Ctrl+Z is deliberately untouched.
-var historyKey = 'texkoi.latest-update';
+var historyKey = (typeof texkoiProfile === 'undefined' ? 'texkoi' : texkoiProfile.id) + '.latest-update';
 function historyStorage() { return probeApp().PluginStorage; }
 function slideState(slide) {
   var items = [];

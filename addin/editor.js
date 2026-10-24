@@ -22,6 +22,9 @@ function showError(error) {
     errorDetails.hidden = false;
   }
 }
+var brand = document.querySelector('.brand');
+if (brand) brand.textContent = profileName();
+document.title = profileName();
 var editTarget = null;
 var targetSlide = null;
 var targetWindow = null;
@@ -58,7 +61,7 @@ try {
   renderButton.disabled = insertButton.disabled = true;
 }
 async function compileSource(source, format) {
-  var response = await fetch('/render', {method: 'POST', headers: {'Content-Type': 'application/json', 'X-TeXKoi': 'render'}, body: JSON.stringify({source: source, format: format})});
+  var response = await fetch('render', {method: 'POST', headers: {'Content-Type': 'application/json', 'X-TeXKoi': 'render'}, body: JSON.stringify({source: source, format: format})});
   var result = await response.json();
   if (!response.ok) throw new Error(result.error || 'Rendering failed');
   return result;

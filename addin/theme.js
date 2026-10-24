@@ -2,7 +2,7 @@
 (function () {
   var link = document.getElementById('wps-theme');
   function refreshTheme() {
-    if (!document.hidden) link.href = '/wps-theme.css?t=' + Date.now();
+    if (!document.hidden) link.href = 'wps-theme.css?t=' + Date.now();
   }
   window.addEventListener('focus', refreshTheme);
   document.addEventListener('visibilitychange', refreshTheme);

@@ -39,6 +39,7 @@ async function check(fail, edit = true) {
   const context = {console, URLSearchParams,
     document: {getElementById: id => controls[id], querySelector: () => ({}), createElement: () => ({style: {}}), addEventListener() {}},
     window: {location: {search: edit ? '?mode=edit' : ''}, close() {closed = true;}},
+    profileName: () => 'TeXKoi',
     historyKey: 'test-history', historyStorage: () => ({removeItem() {}}),
     deckState: () => ({}), rememberUpdate() {remembered = true;},
     activateTeXKoiTab() {},

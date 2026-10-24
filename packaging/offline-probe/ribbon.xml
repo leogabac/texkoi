@@ -1,0 +1,8 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<customUI xmlns="http://schemas.microsoft.com/office/2006/01/customui" onLoad="OnProbeLoad">
+<ribbon><tabs><tab id="texkoiOfflineProbeTab" label="TeXKoi"><group id="offlineProbe" label="Offline installation test">
+<button id="checkOffline" label="Check offline package" onAction="OnCheckOffline"/>
+<button id="checkHelper" label="Test local helper" onAction="OnCheckHelper"/>
+<button id="checkProtocolNative" label="Test URI via WPS" onAction="OnCheckProtocolNative"/>
+<button id="checkProtocolBrowser" label="Test URI via browser" onAction="OnCheckProtocolBrowser"/>
+</group></tab></tabs></ribbon></customUI>

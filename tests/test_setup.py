@@ -15,7 +15,7 @@ class SetupTests(unittest.TestCase):
     def test_registration_preserves_other_addins_and_is_idempotent(self):
         with tempfile.TemporaryDirectory() as directory, contextlib.redirect_stdout(io.StringIO()):
             path = Path(directory) / "publish.xml"
-            original = b'<jsplugins><jspluginonline name="Other" url="https://example.org"/><jspluginonline name="TexKoi"/></jsplugins>'
+            original = b'<jsplugins><jspluginonline name="Other" url="https://example.org"/><jsplugin name="TeXKoi" url="file:///installed/TeXKoi_0.1.0/"/><jspluginonline name="TexKoi" url="http://127.0.0.1:3899/"/></jsplugins>'
             path.write_bytes(original)
             self.assertTrue(register("install", path))
             installed = path.read_bytes()
@@ -25,7 +25,7 @@ class SetupTests(unittest.TestCase):
             self.assertEqual(len(backups), 1)
             self.assertEqual(backups[0].read_bytes(), original)
             self.assertTrue(register("uninstall", path))
-            self.assertEqual([x.get("name") for x in ET.parse(path).getroot()], ["Other"])
+            self.assertEqual([x.get("name") for x in ET.parse(path).getroot()], ["Other", "TeXKoi"])
             self.assertFalse(register("uninstall", path))
 
     def test_malformed_configuration_is_untouched(self):

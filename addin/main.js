@@ -1,3 +1,8 @@
+function profileName() { return typeof texkoiProfile === 'undefined' ? 'TeXKoi' : texkoiProfile.name; }
+function editorUrl(query) {
+  var base = typeof texkoiProfile !== 'undefined' && texkoiProfile.editorBase ? texkoiProfile.editorBase : window.location.href;
+  return new URL('editor.html' + (query || ''), base).href;
+}
 var texkoiRibbon = null;
 var selectionListenerRegistered = false;
 var tabTimers = [];
@@ -23,7 +28,7 @@ function hasSelectedEquation() {
 function activateTeXKoiTab() {
   var ribbon = texkoiRibbon || probeApp().ribbonUI;
   if (ribbon) {
-    try { ribbon.ActivateTab('texkoiTab'); }
+    try { ribbon.ActivateTab(typeof texkoiProfile === 'undefined' ? 'texkoiTab' : texkoiProfile.tabId); }
     catch (_) { ribbon.ActivateTab(); }
   }
 }
@@ -52,7 +57,7 @@ function probeApp() {
 function probeError(error) { alert(error.message || String(error)); }
 
 function OnNewEquation() {
-  try { probeApp().ShowDialog('http://127.0.0.1:3899/editor.html', 'TeXKoi — New equation', 700, 650, true); queueTeXKoiTab(); }
+  try { probeApp().ShowDialog(editorUrl(), profileName() + ' — New equation', 700, 650, true); queueTeXKoiTab(); }
   catch (error) { probeError(error); }
 }
 function storeSource(shape, source) {
@@ -86,14 +91,14 @@ function selectedEquation() {
 function OnEditEquation() {
   try {
     selectedEquation();
-    probeApp().ShowDialog('http://127.0.0.1:3899/editor.html?mode=edit', 'TeXKoi — Edit equation', 700, 650, true);
+    probeApp().ShowDialog(editorUrl('?mode=edit'), profileName() + ' — Edit equation', 700, 650, true);
     queueTeXKoiTab();
   } catch (error) { alert(error.message || String(error)); }
 }
 
 function OnUndoDiagnostics() {
   try {
-    probeApp().ShowDialog('http://127.0.0.1:3899/diagnostics.html', 'TeXKoi — Undo diagnostics', 700, 600, true);
+    probeApp().ShowDialog(new URL('diagnostics.html', window.location.href).href, 'TeXKoi — Undo diagnostics', 700, 600, true);
   } catch (error) { alert(error.message || String(error)); }
 }
 

@@ -4,8 +4,8 @@ from datetime import datetime
 from pathlib import Path
 import xml.etree.ElementTree as ET
 
-NAMES = ("TeXKoi", "TexKoi", "IguanaButtonProbe")
-ATTRIBUTES = dict(name="TeXKoi", type="wpp", url="http://127.0.0.1:3899/",
+NAMES = ("TeXKoi Dev", "TeXKoi", "TexKoi", "IguanaButtonProbe")
+ATTRIBUTES = dict(name="TeXKoi Dev", type="wpp", url="http://127.0.0.1:3899/",
                   enable="enable_dev", debug="", install="null")
 
 def register(action, path=None):
@@ -14,12 +14,14 @@ def register(action, path=None):
     root = ET.fromstring(original) if original is not None else ET.Element("jsplugins")
     if root.tag != "jsplugins":
         raise ValueError("Unexpected publish.xml root; leaving it untouched")
-    owned = [child for child in root if child.get("name") in NAMES]
+    owned = [child for child in root if child.get("name") == "TeXKoi Dev" or (
+        child.get("name") in NAMES and child.tag == "jspluginonline"
+        and child.get("url") == ATTRIBUTES["url"])]
     if action == "install" and len(owned) == 1 and owned[0].tag == "jspluginonline" and owned[0].attrib == ATTRIBUTES:
-        print("TeXKoi is already registered.")
+        print("TeXKoi Dev is already registered.")
         return False
     if action == "uninstall" and not owned:
-        print("TeXKoi is not registered.")
+        print("TeXKoi Dev is not registered.")
         return False
     if action not in ("install", "uninstall"):
         raise ValueError("Choose install or uninstall")
