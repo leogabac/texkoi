@@ -1,3 +1,4 @@
+from contextlib import ExitStack
 import contextlib
 import io
 import json
@@ -43,10 +44,12 @@ class CompanionTests(unittest.TestCase):
         ]:
             with self.assertRaises(HTTPError) as caught: self.get(url, **headers)
             self.assertEqual(caught.exception.code, code)
+            caught.exception.close()
         for headers in [{'X-TeXKoi': 'render', 'Origin': 'https://attacker.example'}, {}]:
             with self.assertRaises(HTTPError) as caught:
                 urlopen(Request(self.base + '/render', data=b'{}', headers=headers), timeout=3)
             self.assertEqual(caught.exception.code, 403)
+            caught.exception.close()
         with self.get(self.base + '/health') as response:
             self.assertTrue(json.load(response)['ok'])
 
@@ -74,29 +77,83 @@ class CompanionTests(unittest.TestCase):
 
 
 class InstallerTests(unittest.TestCase):
-    def test_install_and_restore_preserve_original_files(self):
+    def environment(self, root):
+        home = root / 'companion'
+        wps = root / 'wps'; wps.mkdir()
+        publish = wps / 'publish.xml'
+        publish.write_text('<jsplugins><jspluginonline name="Other" url="https://example.org"/><jspluginonline name="TeXKoi Dev" url="http://127.0.0.1:3899/"/></jsplugins>')
+        app = root / 'apps/companion.desktop'; app.parent.mkdir()
+        app.write_text('original application entry')
+        stack = ExitStack()
+        stack.enter_context(patch.multiple(installer, DATA=root/'data', HOME=home, CONFIG=home/'config.json',
+                            STATE=home/'installation.json', APP=app, AUTOSTART=root/'autostart/companion.desktop',
+                            WPS=wps, PUBLISH=publish))
+        stack.enter_context(patch.object(installer, 'dependency_errors', return_value=[]))
+        stack.enter_context(patch.object(installer, 'running', return_value=False))
+        stack.enter_context(patch.object(installer, 'stop'))
+        return stack, home, wps, publish, app
+
+    def test_fresh_install_idempotence_and_restore_preserve_other_addins(self):
+        import xml.etree.ElementTree as ET
         with tempfile.TemporaryDirectory() as directory, contextlib.redirect_stdout(io.StringIO()):
-            root = Path(directory)
-            home = root / 'companion'
-            package = root / 'package'; package.mkdir()
-            (package / 'main.js').write_text('original probe')
-            (package / 'unrelated.txt').write_text('keep')
-            app = root / 'apps/companion.desktop'; app.parent.mkdir()
-            app.write_text('original application entry')
-            with patch.multiple(installer, DATA=root/'data', HOME=home, CONFIG=home/'config.json',
-                                STATE=home/'installation.json', APP=app, AUTOSTART=root/'autostart/companion.desktop'), \
-                 patch.object(installer, 'installed_package', return_value=package), \
-                 patch.object(installer, 'dependency_errors', return_value=[]), \
-                 patch.object(installer, 'start'):
+            stack, home, wps, publish, app = self.environment(Path(directory))
+            with stack, patch.object(installer, 'start'):
                 installer.install()
-                self.assertIn('editorBase', (package / 'profile.js').read_text())
-                self.assertIn('Exec=', app.read_text())
+                package = wps / ('TeXKoi_' + installer.VERSION)
+                self.assertIn('editorBase', (package/'profile.js').read_text())
                 self.assertEqual((home/'config.json').stat().st_mode & 0o777, 0o600)
+                before = publish.read_bytes()
+                installer.install()
+                self.assertEqual(before, publish.read_bytes())
+                root = ET.parse(publish).getroot()
+                ET.SubElement(root, 'jspluginonline', name='Added later', url='https://later.example')
+                ET.ElementTree(root).write(publish)
+                (package/'user-file.txt').write_text('keep')
                 installer.restore()
-                self.assertEqual((package/'main.js').read_text(), 'original probe')
-                self.assertEqual((package/'unrelated.txt').read_text(), 'keep')
+                self.assertEqual([e.get('name') for e in ET.parse(publish).getroot()],
+                                 ['Other', 'TeXKoi Dev', 'Added later'])
                 self.assertFalse((package/'profile.js').exists())
+                self.assertEqual((package/'user-file.txt').read_text(), 'keep')
                 self.assertEqual(app.read_text(), 'original application entry')
+
+    def test_failed_start_rolls_back_without_registration_or_autostart_changes(self):
+        with tempfile.TemporaryDirectory() as directory, contextlib.redirect_stdout(io.StringIO()):
+            stack, home, wps, publish, app = self.environment(Path(directory))
+            with stack, patch.object(installer, 'start', side_effect=RuntimeError('occupied port')):
+                before = publish.read_bytes()
+                with self.assertRaisesRegex(RuntimeError, 'occupied port'): installer.install()
+                self.assertEqual(before, publish.read_bytes())
+                self.assertFalse(home.exists())
+                self.assertFalse(installer.AUTOSTART.exists())
+                self.assertEqual(app.read_text(), 'original application entry')
+
+    def test_upgrade_from_prototype_keeps_token_and_original_backups(self):
+        with tempfile.TemporaryDirectory() as directory, contextlib.redirect_stdout(io.StringIO()):
+            stack, home, wps, publish, app = self.environment(Path(directory))
+            with stack, patch.object(installer, 'start'):
+                home.mkdir()
+                token = 'c'*64
+                installer.CONFIG.write_text(json.dumps({'token': token, 'port': 3901}))
+                old = wps/'TeXKoi_0.0.1'; old.mkdir()
+                (old/'main.js').write_text('working prototype')
+                baseline = installer.snapshot(old/'main.js')
+                installer.STATE.write_text(json.dumps({'package':str(old), 'files':{str(old/'main.js'):baseline}}))
+                installer.install()
+                self.assertEqual(json.loads(installer.CONFIG.read_text())['token'], token)
+                state = json.loads(installer.STATE.read_text())
+                self.assertEqual(state['files'][str(old/'main.js')], baseline)
+                self.assertEqual(state['version'], installer.VERSION)
+
+    def test_malformed_publish_file_is_untouched(self):
+        with tempfile.TemporaryDirectory() as directory:
+            stack, home, wps, publish, app = self.environment(Path(directory))
+            with stack, patch.object(installer, 'start') as start:
+                publish.write_text('<broken')
+                import xml.etree.ElementTree as ET
+                with self.assertRaises(ET.ParseError): installer.install()
+                self.assertEqual(publish.read_text(), '<broken')
+                start.assert_not_called()
+                self.assertFalse(home.exists())
 
 
 if __name__ == '__main__': unittest.main()

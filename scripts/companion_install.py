@@ -1,8 +1,4 @@
-"""Install/control the Linux desktop companion using an existing local WPS package.
-
-This test installer reuses a package installed through WPS's publish page. It
-never rewrites publish.xml. A distributable package/installer follows WPS testing.
-"""
+"""Install and control the per-user TeXKoi Linux companion and local WPS add-in."""
 import argparse
 import base64
 import json
@@ -12,11 +8,13 @@ import secrets
 import shutil
 import subprocess
 import sys
+import tempfile
 import time
 import xml.etree.ElementTree as ET
 
 from companion import base_url, load_config, request
-from launcher import dependency_errors
+from launcher import dependency_errors, main as development_main
+import local_registration
 
 ROOT = Path(__file__).resolve().parents[1]
 DATA = Path(os.environ.get('XDG_DATA_HOME', str(Path.home() / '.local/share')))
@@ -26,6 +24,9 @@ CONFIG = HOME / 'config.json'
 STATE = HOME / 'installation.json'
 AUTOSTART = CONFIG_HOME / 'autostart/texkoi-companion.desktop'
 APP = DATA / 'applications/texkoi-companion.desktop'
+WPS = Path.home() / '.local/share/Kingsoft/wps/jsaddons'
+PUBLISH = WPS / 'publish.xml'
+VERSION = (ROOT / 'VERSION').read_text().strip()
 
 
 def desktop_quote(value):
@@ -66,28 +67,14 @@ def stop():
     raise RuntimeError('Companion did not stop; installation left intact')
 
 
-def installed_package():
-    # The folder convention was established by WPS's own offline installer.
-    directory = Path.home() / '.local/share/Kingsoft/wps/jsaddons'
-    root = ET.parse(directory / 'publish.xml').getroot()
-    entries = [entry for entry in root if entry.tag == 'jsplugin' and entry.get('name') == 'TeXKoi']
-    if len(entries) != 1: raise ValueError('Install the TeXKoi local WPS test package first')
-    version = entries[0].get('version', '')
-    if not version or any(c not in '0123456789.-' for c in version):
-        raise ValueError('Unexpected local package version')
-    package = directory / ('TeXKoi_' + version)
-    if not (package / 'index.html').is_file(): raise ValueError('The local WPS package has not been downloaded yet')
-    return package
-
 
 def snapshot(path):
     if not path.exists(): return None
     return {'bytes': base64.b64encode(path.read_bytes()).decode(), 'mode': path.stat().st_mode & 0o777}
 
 
-def restore():
-    state = json.loads(STATE.read_text())
-    for name, original in state['files'].items():
+def restore_files(files):
+    for name, original in files.items():
         path = Path(name)
         if original is None:
             path.unlink(missing_ok=True)
@@ -97,65 +84,111 @@ def restore():
             path.chmod(original['mode'])
 
 
+def restore():
+    state = json.loads(STATE.read_text())
+    restore_files(state['files'])
+    if 'registration_before' in state:
+        local_registration.replace(PUBLISH, state['registration_before'])
+    # Remove only empty generated directories, preserving unexpected user files.
+    for name, previous in state['files'].items():
+        if previous is not None: continue
+        parent = Path(name).parent
+        while parent.is_relative_to(WPS) and parent != WPS:
+            try: parent.rmdir()
+            except OSError: break
+            parent = parent.parent
+
+
 def install():
-    if STATE.exists():
-        start()
-        print('Companion already installed and running.')
-        return
-    if CONFIG.exists(): raise ValueError('Existing companion configuration has no installation record')
-    protocol_state = DATA / 'texkoi/protocol-probe/installation.json'
-    if protocol_state.exists():
-        raise ValueError('Remove the temporary URI probe first: python scripts/install_protocol_probe.py --remove')
+    if not VERSION or any(c not in '0123456789.' for c in VERSION):
+        raise ValueError('Invalid release version')
     errors = dependency_errors()
     if errors: raise ValueError('\n'.join(errors))
-    package = installed_package()
-    HOME.mkdir(mode=0o700, parents=True, exist_ok=True)
-    HOME.chmod(0o700)
-    config = {'token': secrets.token_hex(32), 'port': 3901}
-    profile = dict(name='TeXKoi', tabId='texkoiTab', id='texkoi', mode='companion', editorBase=base_url(config))
+    previous_state = json.loads(STATE.read_text()) if STATE.exists() else None
+    if CONFIG.exists() and previous_state is None:
+        raise ValueError('Existing companion configuration has no installation record')
+    if previous_state and previous_state.get('version') == VERSION:
+        start()
+        print('TeXKoi ' + VERSION + ' is already installed and running.')
+        return
+    registration_before = local_registration.entries(PUBLISH)
+    config = load_config(CONFIG) if CONFIG.exists() else {'token': secrets.token_hex(32), 'port': 3901}
+    package = WPS / ('TeXKoi_' + VERSION)
+    profile = dict(name='TeXKoi', tabId='texkoiTab', id='texkoi', mode='companion',
+                   version=VERSION, editorBase=base_url(config))
     files = {package / p.relative_to(ROOT / 'addin'): p.read_bytes()
-             for p in (ROOT / 'addin').rglob('*') if p.is_file()}
+             for p in (ROOT / 'addin').rglob('*') if p.is_file() and not p.name.startswith('diagnostics')}
     files[package / 'profile.js'] = ('var texkoiProfile = ' + json.dumps(profile) + ';\n').encode()
+    files[package / 'package.json'] = json.dumps(dict(name='TeXKoi', version=VERSION, addonType='wpp')).encode()
+    files[package / 'LICENSE'] = (ROOT / 'LICENSE').read_bytes()
     desktop = '[Desktop Entry]\nType=Application\nName=TeXKoi Companion\nComment=Local equation renderer for WPS Presentation\nTerminal=false\nExec=' + ' '.join(desktop_quote(arg) for arg in command()) + '\n'
     files[AUTOSTART] = desktop.encode()
     files[APP] = desktop.encode()
-    STATE.write_text(json.dumps({'package': str(package), 'files': {str(p): snapshot(p) for p in files}}, indent=2))
-    STATE.chmod(0o600)
-    try:
-        shutil.copytree(ROOT / 'addin', HOME / 'addin', dirs_exist_ok=True)
-        (HOME / 'scripts').mkdir(exist_ok=True)
-        for name in ['companion.py', 'serve.py', 'render.py', 'theme.py']:
-            shutil.copy2(ROOT / 'scripts' / name, HOME / 'scripts' / name)
-        CONFIG.write_text(json.dumps(config))
-        CONFIG.chmod(0o600)
-        # Verify startup before enabling login startup or changing the WPS UI.
-        start()
-        for path, content in files.items():
-            path.parent.mkdir(parents=True, exist_ok=True)
-            path.write_bytes(content)
-        (package / 'profile.js').chmod(0o600)
-    except Exception:
-        stop()
-        restore()
-        shutil.rmtree(HOME)
-        raise
-    print('TeXKoi companion installed and running. Desktop login startup enabled.')
-    print('Restart WPS and use the regular TeXKoi tab. TeXKoi Dev remains separate.')
+    attempt_files = {str(p): snapshot(p) for p in files}
+    baseline = dict(attempt_files)
+    if previous_state:
+        baseline.update(previous_state['files'])
+    state = {'version': VERSION, 'package': str(package), 'files': baseline,
+             'registration_before': previous_state.get('registration_before', registration_before)
+                                    if previous_state else registration_before}
+    HOME.parent.mkdir(parents=True, exist_ok=True)
+    # Keep the previous runtime outside HOME until the upgrade is complete.
+    with tempfile.TemporaryDirectory(prefix='texkoi-install-', dir=HOME.parent) as temporary:
+        backup = Path(temporary) / 'runtime'
+        was_running = running()
+        if previous_state: stop()
+        if HOME.exists(): shutil.copytree(HOME, backup)
+        try:
+            HOME.mkdir(mode=0o700, parents=True, exist_ok=True)
+            HOME.chmod(0o700)
+            shutil.copytree(ROOT / 'addin', HOME / 'addin', dirs_exist_ok=True,
+                            ignore=shutil.ignore_patterns('diagnostics*'))
+            (HOME / 'scripts').mkdir(exist_ok=True)
+            for name in ['companion.py', 'serve.py', 'render.py', 'theme.py']:
+                shutil.copy2(ROOT / 'scripts' / name, HOME / 'scripts' / name)
+            CONFIG.write_text(json.dumps(config))
+            CONFIG.chmod(0o600)
+            STATE.write_text(json.dumps(state, indent=2))
+            STATE.chmod(0o600)
+            start()
+            for path, content in files.items():
+                path.parent.mkdir(parents=True, exist_ok=True)
+                path.write_bytes(content)
+            (package / 'profile.js').chmod(0o600)
+            local_registration.install(PUBLISH, package, VERSION)
+        except Exception:
+            stop()
+            restore_files(attempt_files)
+            local_registration.replace(PUBLISH, registration_before)
+            if HOME.exists(): shutil.rmtree(HOME)
+            if backup.exists(): shutil.copytree(backup, HOME)
+            if was_running: start()
+            raise
+    print('TeXKoi ' + VERSION + ' installed. Companion running; desktop login startup enabled.')
+    print('Restart WPS Presentation to load the versioned TeXKoi add-in.')
+
 
 
 def main():
     parser = argparse.ArgumentParser(description=__doc__)
-    parser.add_argument('action', choices=['install', 'start', 'stop', 'status', 'uninstall'])
+    parser.add_argument('action', nargs='?', default='install', choices=['install', 'start', 'stop', 'status', 'uninstall', 'doctor'])
+    parser.add_argument('--render-check', action='store_true', help='doctor: compile SVG and PNG samples')
     args = parser.parse_args()
     if sys.platform != 'linux': raise SystemExit('This installer currently supports Linux. The companion core is independent of login startup.')
+    if args.render_check and args.action != 'doctor': parser.error('--render-check requires doctor')
     try:
+        if args.action == 'doctor': return development_main(['doctor'] + (['--render-check'] if args.render_check else []))
         if args.action == 'install': install()
         elif args.action == 'start': start(); print('Companion running.')
         elif args.action == 'stop': stop(); print('Companion stopped.')
         elif args.action == 'status':
-            print('Companion running.' if running() else 'Companion stopped.')
-            return 0 if running() else 1
+            active = running()
+            print('Companion running.' if active else 'Companion stopped.')
+            return 0 if active else 1
         elif args.action == 'uninstall':
+            if not STATE.exists():
+                print('TeXKoi is not installed.')
+                return 0
             stop()
             restore()
             shutil.rmtree(HOME)

@@ -1,319 +1,132 @@
 # Development notes
 
-A LaTeX extension for WPS Presentation on Linux, inspired by
-[IguanaTex](https://github.com/Jonathan-LeRoux/IguanaTex).
+## Checkout workflow
 
-This is an early LaTeX rendering prototype. The initial test image and probe
-handlers have been retired. The original probe was tested interactively on Arch Linux with `wps-office-cn 12.1.2.29183-1`:
-the ribbon callback, image insertion, and source recovery after saving/reopening
-`.pptx` all worked. The repository version was subsequently confirmed working by the user as well.
-
-## Running from a checkout
-
-Use Python 3.10 or newer. No Python or Node packages are needed for normal use.
-Required executables: `wpp`, `latex`, `pdflatex`, `dvisvgm`, `pdftocairo`, and
-`kpsewhich`. The TeX installation must provide `standalone.cls`, `amsmath.sty`,
-and `amssymb.sty`. Install TeX Live and Poppler with your distribution's package
-manager; package splits vary. The launcher reports missing tools and TeX files.
-
-From the checkout, run `./texkoi`. The launcher resolves its own location, so it
-also works from another directory using an absolute path. Startup checks
-requirements, binds the loopback server, and registers TeXKoi if needed. It
-preserves unrelated WPS add-ins and backs up configuration before actual changes.
-Repeated registration is a no-op. First registration requires a WPS restart.
+Python 3.10+, WPS Presentation, TeX Live (`standalone`, `amsmath`, `amssymb`),
+dvisvgm, and Poppler are required. No Python/Node packages are needed at runtime.
+Node.js is used for the simulated WPS tests.
 
 ```bash
-./texkoi                         # check, register, serve
-./texkoi doctor                  # check tools and TeX packages
-./texkoi doctor --render-check   # also compile SVG and PNG samples
-./texkoi install                 # register without starting the server
-./texkoi uninstall               # remove only TeXKoi registration
-./texkoi --dev                   # serve with Undo diagnostics on the ribbon
+./texkoi                        # serve/register TeXKoi Dev on 127.0.0.1:3899
+./texkoi --dev                  # include the native Undo diagnostics panel
+./texkoi doctor --render-check
+./texkoi install                # register only the Dev profile
+./texkoi uninstall              # remove only the Dev profile
 ```
 
-Leave the terminal open while using the add-in. Ctrl+C stops the server; it
-leaves registration installed for the next run. The server listens only on
-`127.0.0.1:3899`. If another server owns that port, startup reports the conflict
-before modifying registration. Stop the previous server in its terminal and
-retry. Switching development mode requires restarting WPS to reload the ribbon.
-No WPS windows are automatically closed or restarted.
+The Dev process needs its terminal; the installed product does not. Restart
+WPS after ribbon or registration changes. Never close user presentations or
+modify unrelated add-ins/OEM settings automatically.
 
-The renderer and add-in no longer depend on a fixed checkout path. The retired
-probe image and its handlers have been removed. Diagnostics remain accessible
-at `/diagnostics.html` for development, but the normal ribbon hides them.
-The server sends no-store headers to avoid stale development assets.
+```bash
+python -m unittest discover -s tests -p 'test_*.py'
+node tests/editor.cjs
+node tests/history.cjs
+node tests/ribbon.cjs
+python scripts/build_release.py
+```
 
-Run `python -m unittest discover -s tests -p 'test_*.py'` for setup checks, and
-`node tests/editor.cjs`, `node tests/history.cjs`, and `node tests/ribbon.cjs`
-for simulated-host checks. Native WPS behavior still needs interactive tests.
+The release builder writes a deterministic Linux tarball, its SHA256SUMS, and
+an internal file manifest under ignored `dist/releases`. It bundles an explicit
+list of runtime scripts and add-in files, excluding diagnostics, probe code,
+user credentials and generated renders. VERSION and packaging/package.json
+must agree. Building does not tag, publish, install, or change a running instance.
 
-## Validation baseline
+## Installed runtime
 
-On Arch Linux with `wps-office-cn 12.1.2.29183-1`, the user confirmed SVG/PNG
-rendering, insertion, editing, source/settings persistence after save/reopen,
-the dedicated undo/redo workaround, and automatic ribbon focus. The launcher
-and removal of development controls are a subsequent setup change.
+See [INSTALL.md](INSTALL.md) for commands. The installer manages the local
+`TeXKoi_<version>` WPS folder, regular TeXKoi registration, copied runtime and
+XDG desktop application/autostart entries. TeXKoi Dev has a separate ribbon tab,
+port and session-history key. Installation preserves other add-ins; uninstall
+restores the prior regular TeXKoi entries while retaining changes to unrelated
+entries made after installation. Installation/upgrade failure restores the
+previous runtime, files and registration. The initial prototype state can be
+upgraded without changing its access token.
 
-## License
+The companion opens only 127.0.0.1:3901. The local add-in profile opens an editor
+served under an installation-specific 256-bit token path. Editor, compiler API,
+images and theme CSS use the same origin. Requests must have the expected Host;
+compiler POSTs require X-TeXKoi and reject foreign Origin headers. Tokens are
+not logged. Do not share config.json, profile.js or installation.json. The
+renderer is for the user's own TeX, not adversarial input.
 
-MIT; see [LICENSE](LICENSE). This implementation does not include IguanaTex
-source code or assets.
+Linux startup uses an XDG autostart desktop entry, with no systemd dependency.
+The core HTTP/rendering code has no startup-service dependency. Windows/macOS
+installation and native WPS behavior remain unimplemented and untested.
 
-## Equation rendering prototype
+## Rendering and editor
 
-The **New equation** button opens a source editor. Enter a math fragment without
-`$` delimiters, render a preview, then insert it into the current slide. Source
-is attached using the same tags as the persistence probe. Existing equations can be reopened using **Edit equation**.
+SVG uses latex → DVI → dvisvgm with outlined glyphs; PNG uses pdflatex and
+pdftocairo at 300 DPI. TeX runs with shell escape disabled, restricted file
+access and a 30-second limit per command. Each job has its own temporary folder;
+render files last for the companion session and are embedded into slides.
 
-Requires `latex`, `dvisvgm`, `pdflatex`, the `standalone`, `amsmath`, and `amssymb` packages, and
-`pdftocairo` (Poppler). SVG is now the default output, using `latex` → DVI → `dvisvgm` with outlined
-glyphs and a tight bounding box. This avoids the installed Ghostscript PDF
-conversion incompatibility. PNG at 300 DPI remains selectable. Both formats
-scale from the TeX 10-point base to the requested size (28 pt by default).
-The user confirmed SVG insertion, sizing, and save/reopen work in WPS.
+Source is stored as UTF-16 hex in shape tags, alongside format and nominal and
+natural dimensions. Updates preserve position, rotation, layer order and manual
+horizontal/vertical scale, but not animations, crop or custom picture effects.
+The editor has only preview and render/insert-or-update actions. Successful
+insertion/update closes it; errors leave it open. Ctrl+Enter inserts/updates,
+Ctrl+Shift+Enter previews, and Escape closes while idle. Custom preambles and
+additional equation options are deferred.
 
-The local server compiles in per-request temporary directories, disables shell
-escape, restricts TeX file access, and imposes a 30-second timeout per command.
-This is for the user's own LaTeX; it is not a sandbox for untrusted TeX.
-Render files last for the server session and are embedded in the slide.
+Theme CSS reads the saved WPS Linux skin in the user's Kingsoft/Office.conf,
+without returning or modifying its contents. Unknown/follow-system settings
+fall back to prefers-color-scheme. The equation preview remains white. Ribbon
+icons use bundled PNGs; GetRibbonImage must return relative paths because WPS
+prepends the add-in URL. Original SVG sources stay in the repository.
 
-Validation: a fraction/integral example compiled with positive image dimensions;
-invalid LaTeX returned its compiler error. JavaScript syntax and ribbon XML
-checks passed. The user confirmed the PNG editor/preview/insertion workflow works in WPS.
-The user also confirmed the SVG workflow and the revised two-action editor:
-**Render preview** previews only; **Render & insert** compiles, inserts, and
-automatically closes the editor on success. Errors keep the editor open.
-
-## Editing equations
-
-Select one ungrouped TeXKoi equation and click **Edit equation**. The editor
-restores its source, nominal size, and format. **Render & update** creates a
-replacement before deleting the original. It preserves top/left position,
-rotation, layer order, and manual horizontal/vertical scale. A longer equation
-therefore grows in width at the existing scale rather than being squeezed into
-the old bounding box. Changing the size control scales relative to that state.
-Older equations without natural-size tags are compiled once more to recover
-the original dimensions.
-
-The normal ribbon includes **New equation**, **Edit equation**, and dedicated
-equation history actions. Development diagnostics require `./texkoi --dev`.
-
-Run `node tests/editor.cjs` for simulated-host checks of source restoration,
-manual scaling, successful replacement, and original preservation on compiler
-or metadata failure. These checks passed, as did syntax/XML checks. The user confirmed WPS editing and save/reopen after an update work, including
-restored source, size, format, position, and another successful update. Replacement
-does not currently carry over animations, crop, or custom picture effects.
+Selection callbacks activate the equation tab immediately and at frame-sized
+intervals through 96 ms, rechecking selection each time. This reduces the native
+Graphics Tools tab flash, but a completely flash-free transition is not assured.
 
 ## Undo/redo workaround
 
-On WPS Linux `12.1.2.29183`, the user confirmed that an equation update needs
-**Ctrl+Z twice** for a complete undo and **Ctrl+Y twice** for a complete redo.
-After only one undo both equations can be visible. Complete the pair before
-making another edit. This is an observed workaround on the tested build, not a
-guarantee for other versions or more complex slides. Do not automatically issue
-two undos: intervening user actions may occupy the undo stack.
+On WPS Linux 12.1.2.29183 an update requires two native undos/redos. One undo
+can leave both old and new equations visible. This is consistent with separate
+paste/delete records, but the exact cause is unconfirmed. StartNewUndoEntry
+boundaries did not group the full operation; tested application objects did not
+expose UndoRecord, BeginUndoGroup, or BeginTransaction. SetUndoText availability
+does not establish grouping support.
 
-The behavior is consistent with paste and original deletion being separate undo
-records, but the precise cause is unconfirmed. `StartNewUndoEntry` is callable
-on Application, wps, and WppApplication(); explicit boundaries did not produce
-a single-step update in the full workflow. No tested application object exposes
-UndoRecord, BeginUndoGroup, or BeginTransaction. ActivePresentation exposes
-SetUndoText, whose availability does not establish grouping support.
+Prepare the image, metadata and geometry in a hidden staging presentation with
+matching dimensions. Mark only that temporary deck Saved=msoTrue and close it
+before activating the target. Native paste overwrites the clipboard. Delete the
+original only after checking pasted source and geometry. Direct AddPicture on
+the target and Fill.UserPicture did not solve the tested native behavior.
 
-The current implementation prepares a complete image with tags and geometry in
-a hidden staging presentation with matching slide dimensions, then copies it.
-It marks only that temporary deck Saved=msoTrue and closes it before activating
-the target. The user confirmed the temporary save prompt is resolved. Target
-insertion uses native paste, checks metadata and geometry, adjusts layer order,
-and deletes the original only after those checks. This overwrites the clipboard.
+Dedicated history buttons track only the latest successful update in shared
+PluginStorage. They snapshot deck shape IDs, types, geometry, names, text and
+tags, then check state between native ExecuteMso Undo/Redo calls. Stop after
+one if it reaches the expected state; issue a second only for the expected
+old/new overlap. Unexpected states invalidate the record without repair.
 
-Simulated checks cover insertion/update, source and geometry fidelity, staging
-cleanup, and original preservation on compilation/preparation/paste/delete
-failures. They do not simulate WPS's undo stack. Run `node tests/editor.cjs`.
-The user confirmed save/reopen after an update preserves source, size, format,
-and position, and editing/updating works again. Both dedicated undo/redo actions
-also passed interactive testing. Simulated tests remain separate from these
-user-reported WPS results.
+Use them immediately after an update, without unrelated edits. Snapshots omit
+animations, fills, some picture content and the actual undo stack: matching
+state cannot prove undo ownership. These are best-effort compatibility guards.
+Native keyboard shortcuts are untouched; globally doubling them would undo
+unrelated work. The development diagnostics overwrite the clipboard and should
+be used only with disposable slides.
 
-Investigation history:
+## Validation and release status
 
-- Isolated paste-only and paste/delete probes passed native undo/redo, but the
-  integrated update still requires two steps.
-- Fill.UserPicture changed source tags without changing the visible picture;
-  that approach was removed. An equation touched by that experiment may need
-  regeneration from its checked source to restore image/source agreement.
-- Direct AddPicture on the target was replaced with staging and native paste.
+The user confirmed rendering, insertion, editing, source/settings persistence
+after save/reopen, dedicated history, theme/icons, ribbon focus and the installed
+companion on Arch Linux with wps-office-cn 12.1.2.29183-1. They rebooted the PC,
+opened WPS and confirmed it works without manually starting anything.
 
-The **Undo diagnostics** development panel is available in `--dev` mode for
-API reports and disposable-slide paste tests. These tests overwrite the clipboard.
+The standalone v0.1.0 installer changes the package folder and registration from
+the original probe. Automated installation, restoration, rollback and release
+bundle checks accompany it. The user confirmed the final WPS restart/smoke test for this versioned
+installation. Simulated-host tests do not prove native undo behavior.
+See [OFFLINE_INSTALLATION.md](OFFLINE_INSTALLATION.md) for why the companion
+exists rather than calling a helper directly from WPS.
 
-### Why dedicated equation history buttons exist
-
-Native undo could not be made into a single update operation using the tested
-API boundaries. Globally doubling Ctrl+Z/Ctrl+Y would also affect unrelated WPS
-edits, and no supported Presentation interception/ownership mechanism was
-established. Dedicated buttons keep the workaround explicit and allow checking
-the expected old/new equation states before issuing the second native command.
-They are a compatibility workaround, not a fix to WPS undo grouping.
-
-### Dedicated equation history buttons (experimental)
-
-**Undo equation update** / **Redo equation update** use native ExecuteMso Undo
-or Redo, checking state before each command. Only the most recent successful
-update is tracked, in shared PluginStorage for this add-in session. A new
-insertion/update attempt invalidates the previous record. Native shortcuts
-are untouched. Restart WPS and make a fresh update to populate this history.
-
-Use these buttons immediately after updating, without unrelated edits. The
-guard snapshots slide/shape IDs, names, types, geometry, text, and tags across
-the active deck. It does not inspect animations, fills, other picture content,
-or the host's undo stack, so matching snapshots cannot prove undo ownership.
-If the first command reaches the expected final state, it stops after one.
-Otherwise it issues a second only if the state matches the expected overlap
-of old and new equations. Unexpected states invalidate the record and stop;
-no automatic repair commands are attempted. The user confirmed both dedicated history buttons pass in WPS 12.1.2.29183.
-The guards remain best-effort because WPS undo-stack ownership is not exposed.
-
-`node tests/history.cjs` checks paired and single-entry transitions, refusal
-after a changed snapshot, and stopping after an unexpected first transition.
-
-## Automatic ribbon focus
-
-The add-in listens for WindowSelectionChange and activates the TeXKoi tab
-when a selected shape carries TeXKoi (or legacy probe) source tags. Activation runs immediately and repeats at 16 ms intervals through 96 ms.
-The earlier 80/300 ms retries caused a visible picture-tab flash; replacing them
-with a single zero-delay recheck lost to WPS's later Graphics Tools activation.
-The short retry burst is intended to reclaim focus promptly after that native
-activation, but a completely flash-free switch is not established.
-The callback rechecks current selection, so selecting another object cancels
-the queued activation. The listener is registered once per ribbon context.
-After insertion/update the result is selected and the TeXKoi tab activated
-outside the completed undo entry. Manual tab choices are not continuously
-overridden. `node tests/ribbon.cjs` verifies selection behavior with a mock host;
-actual WPS tab timing and the existing undo workaround still need a live check.
-
-The original delayed activation worked in WPS, but flashed; the zero-delay
-version failed to retain the tab. The user accepted the frame-spaced version as good enough in live WPS testing.
-
-Launcher verification: setup regression checks and all three JavaScript checks
-passed. `doctor --render-check` found all tools/packages and compiled both SVG
-and PNG. Live loopback HTTP checks confirmed normal/development ribbon modes,
-no-store headers, and SVG rendering/delivery. An occupied-port test failed with
-a clear error before writing registration. The live service was then restarted
-through `./texkoi`; WPS must be restarted to see the normal ribbon.
-
-## v0.1 editor scope
-
-The editor uses a compact source area, inline size/format controls, a centered
-preview, and a sticky footer containing only Render preview and Render & insert
-(or Render & update). Preview width reflects the chosen point size, fitting
-within the available width. Changed source/format dims the old preview until
-rendering again. During rendering controls are disabled and the action displays
-progress. Errors show a concise summary with expandable compiler output.
-
-Ctrl+Enter renders and inserts/updates; Ctrl+Shift+Enter previews; Escape closes
-when idle. Source is focused on opening. Preambles, installation packaging, and
-additional equation options remain deferred. This does not constitute a v0.1
-release or claim native offline installation is complete.
-
-Existing editor/history/ribbon/setup checks pass with the revised UI. A browser
-inspection confirmed labels and layout; the ordinary browser correctly shows
-an unavailable-host message and disables rendering because it is outside WPS.
-The revised layout and shortcuts still need a live WPS check.
-
-## Editor theme integration
-
-The helper serves `/wps-theme.css` from the current user's WPS Linux skin
-preference in `$XDG_CONFIG_HOME/Kingsoft/Office.conf` (with lowercase filename
-fallback). It reads only the current skin and follow-system keys; it does not
-modify WPS configuration or return its contents. Known dark/light skin names
-select corresponding UI colors. Unknown, unavailable, or follow-system settings
-fall back to `prefers-color-scheme`. The stylesheet loads before first paint and
-refreshes every two seconds while visible and on focus. It follows the saved
-preference; changes held only in WPS memory cannot be detected this way.
-
-This is a compatibility implementation based on inspected configuration, not a
-documented WPS theme API. Controls and surfaces adapt; the equation preview
-remains white to display black TeX output without changing inserted equations.
-Dark/light and system-fallback config checks passed; live WPS switching still
-needs verification.
-
-## Ribbon icons
-
-The four main actions use original blue outline icons: sigma-plus, sigma-pencil,
-and matching undo/redo arrows. Editable SVG sources live in `addin/icons/`;
-64-pixel transparent PNGs are served through the GetRibbonImage callback for
-WPS ribbon compatibility. All four buttons use large sizing; history labels
-are shortened to Undo update / Redo update with explanatory tooltips. The icon
-color was checked on light and dark backgrounds. Assets are bundled, without
-external fonts or icon libraries; `rsvg-convert` was used during authoring only
-and is not a runtime dependency. Native ribbon display needs a WPS restart.
-
-Ribbon icon URL correction: WPS prepends its add-in base URL to the string
-returned by GetRibbonImage. Returning an absolute HTTP URL produced live
-requests for `/http://127.0.0.1:3899/icons/...` and 404 placeholders. The callback
-now returns relative `icons/<name>.png` paths; regression checks enforce this.
-
-The user confirmed the corrected relative icon paths render correctly in WPS.
-The polished editor and WPS-config theme adaptation were also accepted in live use.
-
-## Development versus installed identity
-
-The server-backed checkout registers as **TeXKoi Dev**, serves a separate
-`texkoiDevTab`, and uses a separate session-history key. The project, source
-ribbon, and future local package retain **TeXKoi**. The server supplies its Dev
-profile at `/profile.js`; callbacks resolve editor/diagnostic URLs relative to
-the current page, so the transport need not be hardcoded. Startup migrates old
-online localhost registrations, while preserving a local regular TeXKoi entry.
-`./texkoi install/uninstall` currently manage only the Dev registration.
-
-See [offline installation investigation](OFFLINE_INSTALLATION.md) for the
-packaging experiments, rejected launch paths, and current companion test.
-
-## Installed companion test
-
-The Linux companion uses desktop login autostart rather than systemd. The
-Python rendering/HTTP core is independent of that mechanism; Windows/macOS
-installation, startup and WPS behavior are not implemented or tested.
-
-This interim installer requires the existing local TeXKoi package installed
-through WPS's official publish flow. It updates that package in place, retaining
-the WPS-generated registration and its probe version. It is not a distributable
-v0.1 installer yet. It copies the runtime outside the checkout, adds desktop
-application/login-startup entries, and starts the companion. Source edits do
-not update the installed runtime automatically.
-
-```bash
-python scripts/companion_install.py install
-python scripts/companion_install.py status
-python scripts/companion_install.py stop
-python scripts/companion_install.py start
-python scripts/companion_install.py uninstall
-```
-
-Installation snapshots replaced WPS files and desktop entries; uninstall stops
-the companion and restores those files. It preserves the WPS package itself,
-other add-ins, and TeXKoi Dev. Its runtime/config/logs live under the XDG data
-directory, normally `~/.local/share/texkoi/companion`. The private token is in
-config.json and the installed profile.js: do not paste those files into logs.
-
-The local ribbon opens the companion-served editor on port 3901. Both editor
-and API use the same origin, with a random 256-bit path token; compiler POSTs
-still require the custom header and reject foreign origins. Host checks block
-foreign Host headers. Request URLs are omitted from logs. The Dev server keeps
-port 3899 and its own profile/history. Relative editor/theme/render URLs work
-in both configurations.
-
-Validation: eight Python checks cover registration/theme, installer restoration,
-private routes, hostile host/origin requests, regular profile/editor delivery,
-and actual SVG/PNG compilation plus image fetching. Existing JavaScript
-insertion/history/ribbon checks pass. The installed copied runtime rendered
-and served SVG and PNG with ports 3899 and 3990 absent. During this agent run
-the companion is kept in a managed execution session for the WPS test; actual
-desktop login startup remains to be tested after logout/login. WPS editor
-opening, insertion, editing and history through the installed profile remain
-pending interactive verification. No commit has been made for this work.
-
-The user confirmed the installed editor workflow, then rebooted the PC and
-confirmed TeXKoi works without manually starting the companion. Desktop login
-autostart is therefore verified on this machine.
+Release preparation checks: all 12 Python tests and three JavaScript suites
+passed. Two builds produced identical archives and the internal SHA-256 manifest
+matched every bundled file. The extracted release passed doctor with actual
+SVG/PNG compilation, two real install/start/remove cycles in an isolated home
+directory with an unrelated WPS add-in, and then upgraded the actual installed
+prototype to 0.1.0. The companion is running and both regular TeXKoi 0.1.0 and
+TeXKoi Dev registrations are present. The user subsequently confirmed the final
+WPS restart and insertion/editing check. No tag or published release has been
+created.
