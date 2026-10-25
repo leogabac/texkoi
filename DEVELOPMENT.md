@@ -2,7 +2,7 @@
 
 ## Checkout workflow
 
-Python 3.10+, WPS Presentation, TeX Live (`standalone`, `amsmath`, `amssymb`),
+Python 3.10+, WPS Slides, TeX Live (`standalone`, `amsmath`, `amssymb`),
 dvisvgm, and Poppler are required. No Python/Node packages are needed at runtime.
 Node.js is used for the simulated WPS tests.
 

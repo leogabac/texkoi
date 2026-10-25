@@ -1,73 +1,78 @@
 # TeXKoi
 
-Editable LaTeX equations for **WPS Presentation on Linux**, inspired by
-[IguanaTex](https://github.com/Jonathan-LeRoux/IguanaTex).
+TeXKoi brings editable LaTeX equations to **WPS Slides on Linux**.
 
-Write an equation, preview it, and insert it as an SVG or transparent PNG. The
-LaTeX source stays attached to the equation in your presentation, so you can
-select it later and edit it. TeXKoi renders locally through a small companion
-that starts when you log in. It needs no Internet connection during use and
-no terminal left open.
+Inspired by [IguanaTex](https://github.com/Jonathan-LeRoux/IguanaTex). Part of **Reiko Studio**.
 
-The editor includes size/format controls, keyboard shortcuts, WPS light/dark
-theme adaptation, and equation update actions. SVG output uses outlined glyphs.
-The initial release targets Linux; Windows and macOS are future work.
+**[Installation guide](INSTALL.md)** · [Changelog](CHANGELOG.md)
+
+> [!NOTE]
+> This project is in early development and has only been tested on
+> Arch Linux with the Chinese version of WPS Office (`wps-office-cn 12.1.2.29183-1`).
 
 ## Installation
 
-1. Install **WPS Presentation with JavaScript add-in support**, **Python 3.10+**,
-   **TeX Live**, **dvisvgm**, and **Poppler** using your distribution's package
-   manager. TeX Live must include `standalone`, `amsmath`, and `amssymb`; the
-   required commands are `wpp`, `latex`, `pdflatex`, `kpsewhich`, `dvisvgm`, and
-   `pdftocairo`. Package names vary by distribution.
-2. Download and extract the source archive, or clone this repository. Open a
-   terminal in the extracted project folder containing `install`.
-3. Check dependencies and install for your user:
+You will need WPS Slides with JavaScript add-in support, Python 3.10+,
+TeX Live, dvisvgm, and Poppler. The current version targets Linux.
 
-   ```bash
-   python3 install doctor --render-check
-   python3 install
-   ```
-
-4. Restart WPS Presentation, open the **TeXKoi** tab, and choose **New equation**.
-   Enter math without `$` delimiters, then click **Render & insert**. Select an
-   equation and choose **Edit equation** to change it later.
-
-Installation needs no sudo, Node.js, npm, or systemd. It copies the companion
-and add-in into your user directories, starts the companion, and enables desktop
-login startup. You can close the terminal and move or remove the downloaded
-project folder afterward. WPS and the TeX dependencies must remain installed.
-The tested setup is Arch Linux with `wps-office-cn 12.1.2.29183-1`.
-
-To control or remove TeXKoi, run these from a project/release folder containing
-`install` (download it again if necessary):
+Download and extract the source archive, or clone this repository. From the
+project folder, run:
 
 ```bash
-python3 install status
-python3 install stop
-python3 install start
-python3 install uninstall
+python3 install doctor --render-check
+python3 install
 ```
 
-Uninstall preserves other WPS add-ins and equations already in your slides.
-See [installation details](INSTALL.md) for paths, troubleshooting and limitations,
-and [changes](CHANGELOG.md) for v0.1.0.
+Restart WPS Slides to see the **TeXKoi** tab. The installer sets up local
+rendering and automatic startup for your user account. You can close the
+terminal afterward.
 
-## Undo and redo
+The [installation guide](INSTALL.md) covers dependencies, compatibility,
+removal, and troubleshooting.
+
+## Your first equation
+
+Open a slide and choose **TeXKoi → New equation**. Enter a LaTeX math fragment,
+without surrounding `$` delimiters:
+
+```latex
+\int_0^1 x^2\,dx = \frac{1}{3}
+```
+
+Choose a size and click **Render preview** to check it, or **Render & insert**
+to place it on the slide. The editor closes after insertion, leaving the
+equation selected and ready to position.
+
+To change it later, select the equation and choose **Edit equation**. Adjust
+the source and click **Render & update**. Your source travels with the equation
+when you save and reopen the presentation.
+
+For quicker editing, **Ctrl+Enter** renders and inserts or updates;
+**Ctrl+Shift+Enter** previews; **Escape** closes the editor while idle.
+
+## Troubleshooting
+
+### Undo and redo after an update
 
 On the tested WPS build, a complete equation update takes **Ctrl+Z twice** to
-undo and **Ctrl+Y twice** to redo. TeXKoi provides **Undo update** and **Redo
-update** as a guarded workaround. Use them immediately after updating, before
-unrelated edits. Updates also overwrite the clipboard.
+undo and **Ctrl+Y twice** to redo. A single undo can leave both versions visible.
+
+Use TeXKoi's **Undo update** and **Redo update** buttons immediately after an
+update, before unrelated edits. They provide a compatibility workaround for
+the latest equation update in the current session.
+
+For startup or rendering problems, see the
+[troubleshooting guide](INSTALL.md#troubleshooting).
 
 ## AI disclosure
 
-TeXKoi is being developed with AI assistance from OpenAI Codex, using GPT-6.1 Sol.
-AI assistance has been used for research, implementation, and documentation.
-The project author tests the WPS workflows; automated tests cover the renderer,
-installer, and simulated host behavior.
+TeXKoi is developed with AI assistance from OpenAI Codex, using GPT-6.1 Sol,
+for implementation, research, and documentation. All code and functionality
+have been reviewed by the project author.
 
 ## License
 
 [MIT](LICENSE). IguanaTex is credited as inspiration; TeXKoi does not include
 its source code or assets.
+
+[Development notes](DEVELOPMENT.md) · [Installation design](OFFLINE_INSTALLATION.md)
