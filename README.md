@@ -6,6 +6,8 @@ Inspired by [IguanaTex](https://github.com/Jonathan-LeRoux/IguanaTex). Part of *
 
 **[Installation guide](INSTALL.md)** · [Changelog](CHANGELOG.md)
 
+![TeXKoi in WPS Slides, showing the equation editor with a Boltzmann entropy preview and an equation on the slide](docs/images/main-ss.png)
+
 > [!NOTE]
 > This project is in early development and has only been tested on
 > Arch Linux with the Chinese version of WPS Office (`wps-office-cn 12.1.2.29183-1`).

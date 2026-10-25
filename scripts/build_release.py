@@ -20,7 +20,7 @@ def build(destination):
     if metadata != dict(name='TeXKoi', version=version, addonType='wpp'):
         raise ValueError('WPS metadata does not match VERSION')
     files = {name: (ROOT / name).read_bytes() for name in
-             ['install', 'VERSION', 'README.md', 'INSTALL.md', 'CHANGELOG.md', 'LICENSE', 'DEVELOPMENT.md', 'OFFLINE_INSTALLATION.md']}
+             ['install', 'VERSION', 'README.md', 'INSTALL.md', 'CHANGELOG.md', 'LICENSE', 'DEVELOPMENT.md', 'OFFLINE_INSTALLATION.md', 'docs/images/main-ss.png']}
     files.update({'scripts/' + name: (ROOT / 'scripts' / name).read_bytes() for name in SCRIPTS})
     files.update({str(p.relative_to(ROOT)): p.read_bytes() for p in (ROOT / 'addin').rglob('*')
                   if p.is_file() and not p.name.startswith('diagnostics') and p.suffix != '.svg'})
