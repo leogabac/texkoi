@@ -1,6 +1,6 @@
 # Changelog
 
-## 0.2.0 — Unreleased
+## 0.2.0 — 2026-10-28
 
 - Add user configuration for the default equation size and output format, plus
   a custom preamble file with packages and macros. New equations reload these
