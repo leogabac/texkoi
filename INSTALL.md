@@ -1,4 +1,4 @@
-# Installing TeXKoi 0.1.1
+# Installing TeXKoi 0.2.0
 
 This release targets Linux desktops and WPS Slides (also called WPS
 Presentation). It uses a locally
@@ -23,7 +23,7 @@ No Python packages, Node.js, or npm are required.
 ## Install
 
 Download and extract the source archive, clone the repository, or extract a
-generated `TeXKoi-v0.1.1-linux.tar.gz` bundle. Open the project folder containing
+generated `TeXKoi-v0.2.0-linux.tar.gz` bundle. Open the project folder containing
 `install` in a terminal, and run:
 
 ```bash
@@ -41,6 +41,11 @@ only the regular TeXKoi entry in WPS's `publish.xml`. It preserves other add-ins
 including TeXKoi Dev. It starts the companion immediately and installs an entry
 under `~/.config/autostart` for subsequent desktop logins. XDG overrides apply
 to the companion and desktop entry locations; the WPS directory is WPS-specific.
+
+The installer also creates user settings and a preamble file under
+`~/.config/texkoi` if they do not exist. Existing preferences are preserved.
+See [configuration and preambles](CONFIGURATION.md). These user files remain
+after uninstall; remove them yourself if you want to reset preferences.
 
 The release uses its own local installer; installation does not require the
 experimental publish webpage or an already installed probe. The versioned
@@ -64,7 +69,10 @@ Uninstall stops it, removes the installed runtime and its startup entries, and
 restores files/TeXKoi registration replaced during installation. Other add-ins
 and equations already embedded in presentations remain intact. Restart WPS
 after uninstall. Repeating install at the same version is a no-op; uninstall
-and reinstall to repair a damaged installation.
+and reinstall to repair a damaged installation. To refresh an installed version
+from an updated checkout while testing, run `python3 install --refresh`, then
+restart WPS. The installer keeps your configuration and the original uninstall
+backup.
 
 ## Troubleshooting
 
@@ -112,6 +120,15 @@ output. Do not repeatedly reinstall or edit approval flags manually. The repair
 worked for reopening WPS on the tested machine; persistence after the following
 reboot still needs confirmation.
 
+### Settings or a custom preamble fail to load
+
+Check the named file in the error message, correct it, and try rendering again.
+New equations retry loading settings after a configuration error; reopening a
+new editor also reloads them. Existing equations use their saved preamble and
+can still be edited if the current configuration is invalid. Use
+`python3 install doctor --render-check` to validate and compile your configured
+preamble. See the [configuration guide](CONFIGURATION.md) for syntax and limits.
+
 ### Undo or redo leaves two equations visible
 
 An equation update requires two native undo/redo steps on the tested WPS build.
@@ -128,4 +145,6 @@ cropping, or custom picture effects.
 
 Use your own LaTeX source. Shell escape is disabled and compiler timeouts/file
 restrictions apply, but the renderer is not an isolation boundary for untrusted
-TeX. Advanced preambles and additional packages are outside v0.1.x's scope.
+TeX. Custom packages must be installed in your TeX distribution. Alternate
+engines, full document input, and automatic package installation are not
+provided.

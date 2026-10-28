@@ -21,6 +21,9 @@ modify unrelated add-ins/OEM settings automatically.
 ```bash
 python -m unittest discover -s tests -p 'test_*.py'
 node tests/editor.cjs
+node tests/editor-settings.cjs
+node tests/preamble.cjs
+node tests/preamble-actions.cjs
 node tests/history.cjs
 node tests/ribbon.cjs
 node tests/connection.cjs
@@ -67,8 +70,8 @@ natural dimensions. Updates preserve position, rotation, layer order and manual
 horizontal/vertical scale, but not animations, crop or custom picture effects.
 The editor has only preview and render/insert-or-update actions. Successful
 insertion/update closes it; errors leave it open. Ctrl+Enter inserts/updates,
-Ctrl+Shift+Enter previews, and Escape closes while idle. Custom preambles and
-additional equation options are deferred.
+Ctrl+Shift+Enter previews, and Escape closes while idle. User preferences and custom preambles are described in
+[CONFIGURATION.md](CONFIGURATION.md); further editor options are deferred.
 
 Theme CSS reads the saved WPS Linux skin in the user's Kingsoft/Office.conf,
 without returning or modifying its contents. Unknown/follow-system settings
@@ -154,3 +157,47 @@ package. It never writes enable flags or invents hashes for trust approval.
 The independent qing browser may remain resident. No WPS process is terminated
 by this command. The original stale-record repair passed a reopen test; the
 next real reboot check remains pending and must not be claimed as automated.
+
+## v0.2.0 preferences and preamble snapshots
+
+settings.py owns public user preferences under XDG_CONFIG_HOME/texkoi, entirely
+separate from the companion's private runtime config.json. The JSON format
+keeps Python 3.10 support without adding dependencies. Settings are read on
+each new editor load; bad values return an explicit error rather than silently
+falling back. Installation creates defaults only if absent; uninstall preserves
+user configuration and preamble files.
+
+The authenticated settings endpoint returns defaults and the effective preamble
+(base amsmath/amssymb plus the configured file). The editor submits a text
+snapshot, not a filename, and the renderer returns the exact effective text.
+Explicit snapshots render independently of today's settings. Source, preamble
+and generated document retain the existing no-shell-escape restrictions.
+
+Preamble metadata uses UTF-16 hex in 240-character tag values, with part count
+and original length. Read it once into a tag map, validate count/length/chunks,
+and reject damaged snapshots rather than falling back to changed defaults.
+Only absence of a snapshot selects the historical built-in v0.1.x preamble.
+Preparation/paste fidelity checks include the complete preamble before deleting
+the original equation. Natural-dimension recovery also renders the original
+source using its original preamble. History snapshots already include all tags.
+
+Automated tests cover settings validation and reloads; real macro compilation
+in both formats; saved snapshots after settings changes and invalid config;
+legacy defaults; UTF-16/chunk round trips; damaged metadata; and editor error
+recovery. Actual WPS persistence across save/reopen, copying between decks,
+and upgrades still needs interactive confirmation before release.
+
+The v0.2.0 candidate passes 28 Python checks and seven JavaScript suites. An
+extracted release runtime loaded isolated custom defaults and compiled a custom
+macro to SVG and PNG using a saved preamble after its original file was deleted.
+Install/reinstall/uninstall tests preserve user preferences. The release is
+uncommitted/unpublished and has not been installed over the user's v0.1.x
+runtime during development. Native preamble tag persistence is still pending.
+
+The Preamble section can ask the companion to open the configured preamble
+file via the desktop association or an explicit `editor_command` argument array.
+The action takes no client-provided path or command and checks the same origin
+and action header as rendering. Reload is explicit to avoid overwriting an
+equation's stored or unsaved preamble; it leaves source, size, and format alone.
+`python3 install --refresh` reinstalls the same version for development testing
+without discarding the original uninstall baseline or user preferences.

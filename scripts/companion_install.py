@@ -15,6 +15,7 @@ import xml.etree.ElementTree as ET
 from companion import base_url, load_config, request
 from launcher import dependency_errors, main as development_main
 import local_registration
+from settings import ensure_settings
 
 ROOT = Path(__file__).resolve().parents[1]
 DATA = Path(os.environ.get('XDG_DATA_HOME', str(Path.home() / '.local/share')))
@@ -99,15 +100,16 @@ def restore():
             parent = parent.parent
 
 
-def install():
+def install(refresh=False):
     if not VERSION or any(c not in '0123456789.' for c in VERSION):
         raise ValueError('Invalid release version')
     errors = dependency_errors()
     if errors: raise ValueError('\n'.join(errors))
+    ensure_settings()
     previous_state = json.loads(STATE.read_text()) if STATE.exists() else None
     if CONFIG.exists() and previous_state is None:
         raise ValueError('Existing companion configuration has no installation record')
-    if previous_state and previous_state.get('version') == VERSION:
+    if previous_state and previous_state.get('version') == VERSION and not refresh:
         start()
         print('TeXKoi ' + VERSION + ' is already installed and running.')
         return
@@ -144,7 +146,7 @@ def install():
             shutil.copytree(ROOT / 'addin', HOME / 'addin', dirs_exist_ok=True,
                             ignore=shutil.ignore_patterns('diagnostics*'))
             (HOME / 'scripts').mkdir(exist_ok=True)
-            for name in ['companion.py', 'serve.py', 'render.py', 'theme.py']:
+            for name in ['companion.py', 'serve.py', 'render.py', 'theme.py', 'settings.py']:
                 shutil.copy2(ROOT / 'scripts' / name, HOME / 'scripts' / name)
             CONFIG.write_text(json.dumps(config))
             CONFIG.chmod(0o600)
@@ -173,9 +175,11 @@ def main():
     parser = argparse.ArgumentParser(description=__doc__)
     parser.add_argument('action', nargs='?', default='install', choices=['install', 'start', 'stop', 'status', 'uninstall', 'doctor', 'repair-trust'])
     parser.add_argument('--render-check', action='store_true', help='doctor: compile SVG and PNG samples')
+    parser.add_argument('--refresh', action='store_true', help='reinstall an already installed version from these files')
     args = parser.parse_args()
     if sys.platform != 'linux': raise SystemExit('This installer currently supports Linux. The companion core is independent of login startup.')
     if args.render_check and args.action != 'doctor': parser.error('--render-check requires doctor')
+    if args.refresh and args.action != 'install': parser.error('--refresh requires install')
     try:
         if args.action == 'doctor':
             result = development_main(['doctor'] + (['--render-check'] if args.render_check else []))
@@ -191,7 +195,7 @@ def main():
             print('Removed ' + str(count) + ' obsolete TeXKoi trust record(s); other decisions are unchanged.')
             if count: print('Open WPS and approve TeXKoi normally once, then fully quit and reopen it to check persistence.')
             return 0
-        if args.action == 'install': install()
+        if args.action == 'install': install(refresh=args.refresh)
         elif args.action == 'start': start(); print('Companion running.')
         elif args.action == 'stop': stop(); print('Companion stopped.')
         elif args.action == 'status':

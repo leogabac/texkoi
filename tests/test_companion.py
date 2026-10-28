@@ -24,6 +24,7 @@ class CompanionTests(unittest.TestCase):
         cls.temp = tempfile.TemporaryDirectory()
         cls.token = 'a' * 64
         cls.server = companion.make_server({'token': cls.token, 'port': 0}, ROOT / 'addin', cls.temp.name)
+        cls.server.settings_root = Path(cls.temp.name)/'settings'
         cls.origin = cls.server.origin
         cls.base = cls.origin + '/' + cls.token
         cls.worker = threading.Thread(target=cls.server.serve_forever)
@@ -53,6 +54,18 @@ class CompanionTests(unittest.TestCase):
         with self.get(self.base + '/health') as response:
             self.assertTrue(json.load(response)['ok'])
 
+    def test_open_preamble_rejects_foreign_origin_and_client_supplied_path(self):
+        with patch('serve.open_preamble',return_value={'ok':True}) as opener:
+            for headers,data in [({'X-TeXKoi':'open-preamble','Origin':'https://foreign.example'},b''),
+                                 ({},b''),({'X-TeXKoi':'open-preamble'},b'{"path":"/other"}')]:
+                with self.assertRaises(HTTPError) as caught:
+                    urlopen(Request(self.base+'/open-preamble',data=data,headers=headers),timeout=3)
+                self.assertIn(caught.exception.code,(400,403));caught.exception.close()
+            opener.assert_not_called()
+            with urlopen(Request(self.base+'/open-preamble',data=b'',headers={'X-TeXKoi':'open-preamble','Origin':self.origin}),timeout=3) as response:
+                self.assertTrue(json.load(response)['ok'])
+            opener.assert_called_once_with(self.server.settings_root)
+
     def test_installed_editor_and_profile(self):
         with self.get(self.base + '/profile.js') as response:
             profile = response.read().decode()
@@ -60,6 +73,40 @@ class CompanionTests(unittest.TestCase):
             self.assertNotIn('TeXKoi Dev', profile)
         with self.get(self.base + '/editor.html') as response:
             self.assertIn(b'href="wps-theme.css"', response.read())
+
+    def test_custom_preamble_snapshot_survives_changed_or_broken_user_configuration(self):
+        from render import DEFAULT_PREAMBLE
+        with tempfile.TemporaryDirectory() as directory:
+            settings = Path(directory)
+            self.server.settings_root = settings
+            try:
+                (settings/'settings.json').write_text(json.dumps({'default_size_pt':32, 'default_format':'png', 'preamble_file':'custom.tex'}))
+                original = r'\newcommand{\myvector}{\mathbf{v}}'
+                (settings/'custom.tex').write_text(original)
+                with self.get(self.base+'/settings') as response: configuration = json.load(response)
+                self.assertEqual(configuration['default_size_pt'],32)
+                self.assertEqual(configuration['default_format'],'png')
+                saved = configuration['preamble']
+                self.assertEqual(saved,DEFAULT_PREAMBLE+original)
+                (settings/'custom.tex').write_text(r'\newcommand{\myvector}{\mathbf{w}}')
+                for fmt in ['svg','png']:
+                    data=json.dumps({'source':r'\myvector', 'format':fmt, 'preamble':saved}).encode()
+                    with urlopen(Request(self.base+'/render',data=data,headers={'X-TeXKoi':'render'}),timeout=40) as response: result=json.load(response)
+                    self.assertEqual(result['preamble'],saved)
+                    self.assertIn(original,Path(result['path']).with_suffix('.tex').read_text())
+                (settings/'settings.json').write_text('{broken')
+                with self.assertRaises(HTTPError) as caught: self.get(self.base+'/settings')
+                self.assertEqual(caught.exception.code,400);caught.exception.close()
+                # Old equations must still render with their saved preamble even
+                # when today's preferences are invalid or the file is missing.
+                data=json.dumps({'source':r'\myvector','preamble':saved}).encode()
+                with urlopen(Request(self.base+'/render',data=data,headers={'X-TeXKoi':'render'}),timeout=40) as response:
+                    self.assertEqual(json.load(response)['preamble'],saved)
+                data=json.dumps({'source':r'\alpha','preamble':DEFAULT_PREAMBLE}).encode()
+                with urlopen(Request(self.base+'/render',data=data,headers={'X-TeXKoi':'render'}),timeout=40) as response:
+                    self.assertEqual(json.load(response)['preamble'],DEFAULT_PREAMBLE)
+            finally:
+                self.server.settings_root=Path(self.temp.name)/'settings'
 
     def test_corrected_source_with_trailing_newlines_after_compile_failure(self):
         source = r"F_t(x)=\int_{-\infty}^x p_t(x')dx'."
@@ -108,6 +155,7 @@ class InstallerTests(unittest.TestCase):
                             STATE=home/'installation.json', APP=app, AUTOSTART=root/'autostart/companion.desktop',
                             WPS=wps, PUBLISH=publish))
         stack.enter_context(patch.object(installer, 'dependency_errors', return_value=[]))
+        stack.enter_context(patch.object(installer, 'ensure_settings'))
         stack.enter_context(patch.object(installer, 'running', return_value=False))
         stack.enter_context(patch.object(installer, 'stop'))
         return stack, home, wps, publish, app
@@ -134,6 +182,41 @@ class InstallerTests(unittest.TestCase):
                 self.assertFalse((package/'profile.js').exists())
                 self.assertEqual((package/'user-file.txt').read_text(), 'keep')
                 self.assertEqual(app.read_text(), 'original application entry')
+
+    def test_user_configuration_survives_install_reinstall_and_uninstall(self):
+        from settings import ensure_settings
+        with tempfile.TemporaryDirectory() as directory, contextlib.redirect_stdout(io.StringIO()):
+            root=Path(directory)
+            stack,home,wps,publish,app=self.environment(root)
+            preferences=root/'preferences'
+            with stack, patch.object(installer,'start'), patch.object(installer,'ensure_settings',side_effect=lambda:ensure_settings(preferences)):
+                installer.install()
+                (preferences/'preamble.tex').write_text(r'\newcommand{\custom}{x}')
+                installer.install()
+                self.assertEqual((preferences/'preamble.tex').read_text(),r'\newcommand{\custom}{x}')
+                self.assertTrue((home/'scripts/settings.py').is_file())
+                with patch.object(sys,'argv',['install','uninstall']):
+                    self.assertEqual(installer.main(),0)
+                self.assertFalse(home.exists())
+                self.assertEqual((preferences/'preamble.tex').read_text(),r'\newcommand{\custom}{x}')
+                self.assertTrue((preferences/'settings.json').is_file())
+
+    def test_refresh_updates_same_version_and_preserves_uninstall_baseline(self):
+        with tempfile.TemporaryDirectory() as directory, contextlib.redirect_stdout(io.StringIO()):
+            stack,home,wps,publish,app=self.environment(Path(directory))
+            with stack,patch.object(installer,'start'):
+                installer.install()
+                package=wps/('TeXKoi_'+installer.VERSION)
+                original_state=json.loads(installer.STATE.read_text())
+                (package/'main.js').write_text('outdated')
+                installer.install()
+                self.assertEqual((package/'main.js').read_text(),'outdated')
+                installer.install(refresh=True)
+                self.assertEqual((package/'main.js').read_text(),(ROOT/'addin/main.js').read_text())
+                self.assertEqual(json.loads(installer.STATE.read_text())['files'],original_state['files'])
+                installer.restore()
+                self.assertFalse((package/'main.js').exists())
+                self.assertEqual(app.read_text(),'original application entry')
 
     def test_failed_start_rolls_back_without_registration_or_autostart_changes(self):
         with tempfile.TemporaryDirectory() as directory, contextlib.redirect_stdout(io.StringIO()):

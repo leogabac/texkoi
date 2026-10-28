@@ -8,6 +8,7 @@ import tempfile
 import xml.etree.ElementTree as ET
 from register import register
 from render import render
+from settings import load_settings
 from serve import run
 
 TOOLS = ("wpp", "latex", "pdflatex", "dvisvgm", "pdftocairo", "kpsewhich")
@@ -52,11 +53,15 @@ def main(argv=None):
             print("Install WPS Presentation, TeX Live (including standalone, amsmath and amssymb), dvisvgm and Poppler; then rerun ./texkoi doctor.", file=sys.stderr)
             return 1
         if args.command == "doctor":
+            settings = load_settings()
+            print("Settings:", settings["settings_path"])
+            if settings["preamble_path"]:
+                print("Preamble:", settings["preamble_path"])
             print("All required executables and TeX packages are available.")
             if args.render_check:
                 with tempfile.TemporaryDirectory(prefix="texkoi-doctor-") as directory:
                     for fmt in ("svg", "png"):
-                        result = render(r"\frac{\alpha}{\beta} = \int_0^1 x^2\,dx", directory, fmt)
+                        result = render(r"\frac{\alpha}{\beta} = \int_0^1 x^2\,dx", directory, fmt, preamble=settings["preamble"])
                         if result["width"] <= 0 or result["height"] <= 0:
                             raise ValueError("Render check returned invalid image dimensions")
                         print(fmt.upper() + " render check passed.")

@@ -21,6 +21,17 @@
       <div class="field"><label for="size">Size <span class="unit">pt</span></label><input id="size" type="number" min="6" max="144" value="28" step="1"></div>
       <div class="field"><label for="format">Format</label><select id="format"><option value="svg">SVG · vector</option><option value="png">PNG · 300 DPI</option></select></div>
     </div>
+    <details class="preamble-section">
+      <summary>Preamble</summary>
+      <label for="preamble">Packages and macros</label>
+      <textarea id="preamble" rows="5" maxlength="20000" spellcheck="false" autocapitalize="off" autocomplete="off" aria-describedby="preamble-origin"></textarea>
+      <p id="preamble-origin" class="hint">The effective preamble is saved with this equation.</p>
+      <p class="hint">The custom preamble file adds to the built-in packages for new equations.</p>
+      <div class="preamble-actions">
+        <button id="preamble-open" type="button">Edit custom preamble</button>
+        <button id="preamble-reload" type="button">Reload file into equation</button>
+      </div>
+    </details>
     <section class="preview-section" aria-labelledby="preview-label">
       <span id="preview-label" class="field-label">Preview</span>
       <div id="preview" class="preview empty"><span>Render to preview your equation</span></div>

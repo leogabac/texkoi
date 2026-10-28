@@ -1,5 +1,10 @@
 var rendered = null;
 var sourceBox = document.getElementById('source');
+var preambleBox = document.getElementById('preamble');
+var preambleOrigin = document.getElementById('preamble-origin');
+var preambleOpen = document.getElementById('preamble-open');
+var preambleReload = document.getElementById('preamble-reload');
+var settingsLoaded = false;
 var renderButton = document.getElementById('render');
 var insertButton = document.getElementById('insert');
 var statusBox = document.getElementById('status');
@@ -38,12 +43,15 @@ try {
   if (new URLSearchParams(window.location.search).get('mode') === 'edit') {
     editTarget = selectedEquation();
     sourceBox.value = readSource(editTarget);
+    preambleBox.value = readPreamble(editTarget);
+    preambleOrigin.textContent = 'Saved with this equation. Changes here affect only this equation.';
+    settingsLoaded = true;
     var originalSize = Number(readTag(editTarget, 'TEXKOI_SIZE_PT')) || 28;
     var originalFormat = (readTag(editTarget, 'TEXKOI_FORMAT') || 'svg').toLowerCase();
     sizeBox.value = originalSize;
     formatBox.value = originalFormat;
     editState = {
-      source: sourceBox.value, size: originalSize, format: originalFormat,
+      source: sourceBox.value, preamble: preambleBox.value, size: originalSize, format: originalFormat,
       width: editTarget.Width, height: editTarget.Height,
       left: editTarget.Left, top: editTarget.Top, rotation: editTarget.Rotation,
       z: editTarget.ZOrderPosition, id: editTarget.Id,
@@ -57,13 +65,13 @@ try {
   }
 } catch (error) {
   initializationError = error;
-  showError(new Error('Open the editor from WPS Presentation with a slide selected.'));
-  renderButton.disabled = insertButton.disabled = true;
+  showError(editTarget ? error : new Error('Open the editor from WPS Presentation with a slide selected.'));
+  renderButton.disabled = insertButton.disabled = preambleOpen.disabled = preambleReload.disabled = true;
 }
-async function compileSource(source, format) {
+async function compileSource(source, format, preamble) {
   var response;
   try {
-    response = await fetch('render', {method: 'POST', headers: {'Content-Type': 'application/json', 'X-TeXKoi': 'render'}, body: JSON.stringify({source: source, format: format})});
+    response = await fetch('render', {method: 'POST', headers: {'Content-Type': 'application/json', 'X-TeXKoi': 'render'}, body: JSON.stringify({source: source, format: format, preamble: preamble})});
   } catch (_) {
     throw new Error('Cannot reach TeXKoi Companion. Start it from your application menu, then render again. Your source is still in the editor.');
   }
@@ -74,14 +82,72 @@ async function compileSource(source, format) {
   try { result = await response.json(); }
   catch (_) { throw new Error('TeXKoi Companion returned an unexpected response. Restart the companion and try again.'); }
   if (!response.ok) throw new Error(result.error || 'Rendering failed');
+  if (typeof result.preamble !== 'string') throw new Error('The companion needs updating for preamble support. Install TeXKoi again and restart WPS.');
   return result;
 }
 
+async function fetchEditorSettings() {
+  var response;
+  try { response = await fetch('settings'); }
+  catch (_) { throw new Error('Cannot load TeXKoi settings. Start the companion and try rendering again.'); }
+  var settings;
+  try { settings = await response.json(); }
+  catch (_) { throw new Error('The companion returned invalid settings. Update TeXKoi and restart WPS.'); }
+  if (!response.ok) throw new Error(settings.error || 'Cannot load TeXKoi settings.');
+  if (typeof settings.preamble !== 'string' || !['svg', 'png'].includes(settings.default_format) ||
+      typeof settings.default_size_pt !== 'number' || !isFinite(settings.default_size_pt) ||
+      settings.default_size_pt < 6 || settings.default_size_pt > 144) throw new Error('The companion returned invalid equation defaults.');
+  return settings;
+}
+async function loadEditorSettings() {
+  var settings = await fetchEditorSettings();
+  sizeBox.value = settings.default_size_pt;
+  formatBox.value = settings.default_format;
+  preambleBox.value = settings.preamble;
+  preambleOrigin.textContent = (settings.preamble_path ? 'Loaded from ' + settings.preamble_path + '. ' : '') + 'Changes here affect only this equation.';
+  settingsLoaded = true;
+}
 function setBusy(busy) {
-  [renderButton, insertButton, sourceBox, formatBox, sizeBox].forEach(function (control) {
+  [renderButton, insertButton, sourceBox, formatBox, sizeBox, preambleBox, preambleOpen, preambleReload].forEach(function (control) {
     control.disabled = busy;
   });
 }
+async function openPreambleFile() {
+  if (preambleOpen.disabled) return;
+  setBusy(true);
+  try {
+    var response;
+    try { response = await fetch('open-preamble', {method: 'POST', headers: {'X-TeXKoi': 'open-preamble'}}); }
+    catch (_) { throw new Error('Cannot reach TeXKoi Companion. Start it and try again.'); }
+    var result;
+    try { result = await response.json(); }
+    catch (_) { throw new Error('Could not open the preamble. Restart the companion and try again.'); }
+    if (!response.ok) throw new Error(result.error || 'Could not open the preamble.');
+    showStatus('Custom preamble opened. After saving, choose Reload file into equation to use your changes.');
+  } catch (error) { showError(error); }
+  finally { setBusy(false); }
+}
+async function reloadPreambleFile() {
+  if (preambleReload.disabled) return;
+  setBusy(true);
+  try {
+    var settings = await fetchEditorSettings();
+    if (!settings.preamble_path) throw new Error('No preamble file is configured. Set preamble_file in settings.json first.');
+    if (!settingsLoaded) {
+      sizeBox.value = settings.default_size_pt;
+      formatBox.value = settings.default_format;
+      settingsLoaded = true;
+    }
+    preambleBox.value = settings.preamble;
+    preambleOrigin.textContent = 'Loaded from ' + settings.preamble_path + '. Changes here affect only this equation.';
+    markPreviewStale();
+    showStatus('Preamble reloaded into this equation.');
+  } catch (error) { showError(error); }
+  finally { setBusy(false); }
+}
+preambleOpen.onclick = openPreambleFile;
+preambleReload.onclick = reloadPreambleFile;
+
 async function runAction(insert) {
   if (initializationError || renderButton.disabled) return;
   setBusy(true);
@@ -90,10 +156,11 @@ async function runAction(insert) {
   var actionLabel = editState ? 'Render & update' : 'Render & insert';
   insertButton.textContent = insert ? 'Rendering…' : actionLabel;
   try {
+    if (!settingsLoaded) await loadEditorSettings();
     var size = Number(sizeBox.value);
     if (!isFinite(size) || size < 6 || size > 144) throw new Error('Choose a size between 6 and 144 pt.');
     var source = sourceBox.value;
-    var result = await compileSource(source, formatBox.value);
+    var result = await compileSource(source, formatBox.value, preambleBox.value);
     rendered = {source: source, result: result};
     var image = document.createElement('img');
     image.src = result.url;
@@ -106,7 +173,7 @@ async function runAction(insert) {
     if (!insert) { showStatus('Preview ready.'); return; }
     if (editState && (!editState.naturalWidth || !editState.naturalHeight)) {
       // Older equations predate natural-size tags; render once to recover their scale.
-      var original = await compileSource(editState.source, editState.format);
+      var original = await compileSource(editState.source, editState.format, editState.preamble);
       editState.naturalWidth = original.width;
       editState.naturalHeight = original.height;
     }
@@ -157,6 +224,7 @@ function insertRendered(size) {
     var prepared = stagingSlide.Shapes.AddPicture(result.path, 0, -1,
       editState ? editState.left : 100, editState ? editState.top : 150, width, height);
     storeSource(prepared, rendered.source);
+    storePreamble(prepared, result.preamble);
     prepared.Tags.Add('TEXKOI_SIZE_PT', String(size));
     prepared.Tags.Add('TEXKOI_FORMAT', result.format);
     prepared.Tags.Add('TEXKOI_NATURAL_WIDTH', String(result.width));
@@ -180,6 +248,7 @@ function insertRendered(size) {
     shape = slide.Shapes.Paste().Item(1);
     // Check clipboard fidelity before deleting the original, without rewriting tags.
     if (readSource(shape) !== rendered.source) throw new Error('Pasted equation lost its source metadata.');
+    if (readPreamble(shape, true) !== result.preamble) throw new Error('Pasted equation lost its preamble metadata.');
     if (Math.abs(shape.Width - width) > 0.1 || Math.abs(shape.Height - height) > 0.1 ||
         Math.abs(shape.Left - preparedLeft) > 0.1 || Math.abs(shape.Top - preparedTop) > 0.1) {
       throw new Error('WPS changed the equation geometry during paste.');
@@ -222,9 +291,10 @@ function insertRendered(size) {
 function markPreviewStale() {
   if (!rendered) return;
   document.getElementById('preview').className = 'preview stale';
-  showStatus('Source or format changed. Render again to refresh the preview.');
+  showStatus('Source, preamble, or format changed. Render again to refresh the preview.');
 }
 sourceBox.oninput = markPreviewStale;
+preambleBox.oninput = markPreviewStale;
 formatBox.onchange = markPreviewStale;
 document.addEventListener('keydown', function (event) {
   if ((event.ctrlKey || event.metaKey) && event.key === 'Enter') {
@@ -233,4 +303,11 @@ document.addEventListener('keydown', function (event) {
   }
   if (event.key === 'Escape' && !renderButton.disabled) window.close();
 });
-if (!initializationError) sourceBox.focus();
+var editorReady = Promise.resolve();
+if (!initializationError && !settingsLoaded) {
+  setBusy(true);
+  showStatus('Loading equation settings…');
+  editorReady = loadEditorSettings().then(function () { showStatus(''); })
+    .catch(function (error) { showError(error); })
+    .then(function () { setBusy(false); sourceBox.focus(); });
+} else if (!initializationError) sourceBox.focus();

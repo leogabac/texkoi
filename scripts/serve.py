@@ -6,6 +6,7 @@ import json
 import tempfile
 import xml.etree.ElementTree as ET
 from render import render
+from settings import load_settings, open_preamble
 from theme import theme_css
 
 ADDIN = Path(__file__).resolve().parents[1] / "addin"
@@ -18,6 +19,19 @@ class Handler(SimpleHTTPRequestHandler):
         super().end_headers()
 
     def do_GET(self):
+        if self.path.split("?", 1)[0] == "/settings":
+            try:
+                result = load_settings(getattr(self.server, 'settings_root', None))
+                status = 200
+            except ValueError as error:
+                result, status = {'error': str(error)}, 400
+            payload = json.dumps(result).encode()
+            self.send_response(status)
+            self.send_header('Content-Type', 'application/json')
+            self.send_header('Content-Length', str(len(payload)))
+            self.end_headers()
+            self.wfile.write(payload)
+            return
         if self.path.split("?", 1)[0] == "/wps-theme.css":
             payload = theme_css().encode()
             self.send_response(200)
@@ -64,19 +78,35 @@ class Handler(SimpleHTTPRequestHandler):
         super().do_GET()
 
     def do_POST(self):
-        if self.path != "/render":
+        if self.path not in ("/render", "/open-preamble"):
             self.send_error(404)
             return
-        # Cross-origin webpages must not be able to invoke the local compiler.
-        if self.headers.get("Origin") not in (None, getattr(self.server, "origin", ORIGIN)) or self.headers.get("X-TeXKoi") != "render":
+        action = "render" if self.path == "/render" else "open-preamble"
+        # Cross-origin webpages must not be able to invoke local actions.
+        if self.headers.get("Origin") not in (None, getattr(self.server, "origin", ORIGIN)) or self.headers.get("X-TeXKoi") != action:
             self.send_error(403)
+            return
+        if action == "open-preamble":
+            try:
+                if self.headers.get('Content-Length', '0') != '0': raise ValueError('Unexpected request body.')
+                result = open_preamble(getattr(self.server, 'settings_root', None))
+                status = 200
+            except (ValueError, OSError) as error:
+                result, status = {'error': str(error)}, 400
+            payload = json.dumps(result).encode()
+            self.send_response(status)
+            self.send_header('Content-Type', 'application/json')
+            self.send_header('Content-Length', str(len(payload)))
+            self.end_headers()
+            self.wfile.write(payload)
             return
         try:
             length = int(self.headers.get("Content-Length", "0"))
-            if not 0 < length <= 100000:
+            if not 0 < length <= 300000:
                 raise ValueError("Invalid request size")
             data = json.loads(self.rfile.read(length))
-            result = render(data.get("source"), self.server.render_root, data.get("format", "svg"))
+            preamble = data['preamble'] if 'preamble' in data else load_settings(getattr(self.server, 'settings_root', None))['preamble']
+            result = render(data.get("source"), self.server.render_root, data.get("format", "svg"), preamble=preamble)
             result["url"] = getattr(self.server, "public_base", "") + result["url"]
             status = 200
         except (ValueError, TypeError, AttributeError) as error:

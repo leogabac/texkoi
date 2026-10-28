@@ -1,5 +1,24 @@
 # Changelog
 
+## 0.2.0 — Unreleased
+
+- Add user configuration for the default equation size and output format, plus
+  a custom preamble file with packages and macros. New equations reload these
+  settings without restarting the companion.
+- Add a collapsible Preamble section for per-equation changes, with buttons to
+  edit the custom file in your preferred editor and reload it. Configure an
+  explicit editor command when the desktop default is unsuitable.
+- Save the effective preamble with each equation and verify its metadata after
+  paste before replacing an original. Editing uses this saved snapshot even
+  after the user configuration or preamble file changes.
+- Preserve the original built-in preamble and saved size/format for v0.1.x
+  equations instead of applying new configuration to them.
+- Refresh an existing installation of the same version with `install --refresh`,
+  preserving user configuration.
+- Validate configuration and preambles with actionable errors; doctor checks
+  configured preambles when compiling samples. User configuration is retained
+  across uninstall/reinstall.
+
 ## 0.1.1 — 2026-10-28
 
 - Show a local connection screen with Retry when the companion cannot be

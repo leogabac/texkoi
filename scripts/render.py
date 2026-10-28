@@ -1,13 +1,27 @@
 """Compile a math fragment into a cropped SVG or transparent PNG."""
 from pathlib import Path
 import os
+import re
 import struct
 import xml.etree.ElementTree as ET
 import subprocess
 import tempfile
 
 
-def render(source, output_root, output_format="svg"):
+DEFAULT_PREAMBLE = "\\usepackage{amsmath,amssymb}\n"
+MAX_PREAMBLE_UNITS = 20000
+
+
+def validate_preamble(preamble):
+    if not isinstance(preamble, str) or len(preamble.encode('utf-16-le', errors='surrogatepass')) // 2 > MAX_PREAMBLE_UNITS:
+        raise ValueError('Preamble must be text of at most 20,000 UTF-16 characters.')
+    uncommented = re.sub(r'(?<!\\)%[^\n]*', '', preamble)
+    if re.search(r'\\documentclass\b|\\(?:begin|end)\s*\{\s*document\s*\}', uncommented):
+        raise ValueError('Preamble must contain packages and macros, without documentclass or document boundaries.')
+    return preamble
+
+
+def render(source, output_root, output_format="svg", preamble=DEFAULT_PREAMBLE):
     if output_format not in ("svg", "png"):
         raise ValueError("Choose SVG or PNG output.")
     if not isinstance(source, str) or not source.strip() or len(source) > 20000:
@@ -15,15 +29,11 @@ def render(source, output_root, output_format="svg"):
     # The wrapper supplies its own line breaks. A trailing editor newline would
     # otherwise create a paragraph inside math mode and trigger Missing $ inserted.
     source = source.strip()
+    validate_preamble(preamble)
     job = Path(tempfile.mkdtemp(prefix="equation-", dir=output_root))
-    document = r"""\documentclass[border=2pt]{standalone}
-\usepackage{amsmath,amssymb}
-\begin{document}
-$\displaystyle
-""" + source + r"""
-$
-\end{document}
-"""
+    document = (r"\documentclass[border=2pt]{standalone}" + '\n' + preamble + '\n'
+                + r"\begin{document}" + '\n' + r"$\displaystyle" + '\n'
+                + source + '\n$\n' + r"\end{document}" + '\n')
     (job / "equation.tex").write_text(document)
     env = dict(os.environ, openin_any="p", openout_any="p")
     commands = [
@@ -52,4 +62,4 @@ $
         pixels_x, pixels_y = struct.unpack(">II", image.read_bytes()[16:24])
         width, height = pixels_x * 72 / 300, pixels_y * 72 / 300
     return {"path": str(image), "url": "/renders/" + job.name + "/" + image.name,
-            "width": width, "height": height, "format": output_format}
+            "width": width, "height": height, "format": output_format, "preamble": preamble}

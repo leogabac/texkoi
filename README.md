@@ -4,7 +4,7 @@ TeXKoi brings editable LaTeX equations to **WPS Slides on Linux**.
 
 Inspired by [IguanaTex](https://github.com/Jonathan-LeRoux/IguanaTex). Part of **Reiko Studio**.
 
-**[Installation guide](INSTALL.md)** · [Changelog](CHANGELOG.md)
+**[Installation guide](INSTALL.md)** · [Configuration](CONFIGURATION.md) · [Changelog](CHANGELOG.md)
 
 ![TeXKoi in WPS Slides, showing the equation editor with a Boltzmann entropy preview and an equation on the slide](docs/images/main-ss.png)
 
@@ -51,6 +51,13 @@ when you save and reopen the presentation.
 
 For quicker editing, **Ctrl+Enter** renders and inserts or updates;
 **Ctrl+Shift+Enter** previews; **Escape** closes the editor while idle.
+
+## Your own packages and macros
+
+Set your preferred size and output format, then add packages and macros in a
+[custom preamble](CONFIGURATION.md). You can also adjust the preamble for an
+individual equation in the editor. Each equation keeps the preamble it was
+rendered with, so changing your defaults later leaves older equations intact.
 
 ## Troubleshooting
 

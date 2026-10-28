@@ -10,7 +10,7 @@ import tarfile
 
 ROOT = Path(__file__).resolve().parents[1]
 SCRIPTS = ['companion.py', 'companion_install.py', 'local_registration.py',
-           'launcher.py', 'register.py', 'render.py', 'serve.py', 'theme.py']
+           'launcher.py', 'register.py', 'render.py', 'serve.py', 'theme.py', 'settings.py']
 
 
 def build(destination):
@@ -20,7 +20,7 @@ def build(destination):
     if metadata != dict(name='TeXKoi', version=version, addonType='wpp'):
         raise ValueError('WPS metadata does not match VERSION')
     files = {name: (ROOT / name).read_bytes() for name in
-             ['install', 'VERSION', 'README.md', 'INSTALL.md', 'CHANGELOG.md', 'LICENSE', 'DEVELOPMENT.md', 'OFFLINE_INSTALLATION.md', 'docs/images/main-ss.png']}
+             ['install', 'VERSION', 'README.md', 'INSTALL.md', 'CONFIGURATION.md', 'CHANGELOG.md', 'LICENSE', 'DEVELOPMENT.md', 'OFFLINE_INSTALLATION.md', 'docs/images/main-ss.png']}
     files.update({'scripts/' + name: (ROOT / 'scripts' / name).read_bytes() for name in SCRIPTS})
     files.update({str(p.relative_to(ROOT)): p.read_bytes() for p in (ROOT / 'addin').rglob('*')
                   if p.is_file() and not p.name.startswith('diagnostics') and p.suffix != '.svg'})
