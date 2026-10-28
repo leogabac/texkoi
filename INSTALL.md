@@ -1,4 +1,4 @@
-# Installing TeXKoi 0.1.0
+# Installing TeXKoi 0.1.1
 
 This release targets Linux desktops and WPS Slides (also called WPS
 Presentation). It uses a locally
@@ -23,7 +23,7 @@ No Python packages, Node.js, or npm are required.
 ## Install
 
 Download and extract the source archive, clone the repository, or extract a
-generated `TeXKoi-v0.1.0-linux.tar.gz` bundle. Open the project folder containing
+generated `TeXKoi-v0.1.1-linux.tar.gz` bundle. Open the project folder containing
 `install` in a terminal, and run:
 
 ```bash
@@ -77,7 +77,9 @@ other editions may behave differently.
 ### The editor cannot connect or rendering does not start
 
 Run `python3 install status`, then `python3 install start` if the companion is
-stopped. Run `python3 install doctor --render-check` to check the required tools
+stopped. The editor opening screen has a **Retry** button once the companion
+is available. If it stops during editing, your source stays in the editor;
+start the companion and render again. Run `python3 install doctor --render-check` to check the required tools
 and compile a sample in both output formats. You can also start **TeXKoi
 Companion** from your desktop application menu.
 
@@ -85,6 +87,30 @@ If another application occupies port 3901, installation fails rather than using
 or terminating that application. Logs live in the companion directory as
 `companion.log` and `startup.log`. Do not share `config.json`, the installed
 `profile.js`, or `installation.json`: they contain local access credentials.
+
+### WPS repeatedly says TeXKoi changed
+
+One trust prompt after installing a new version is expected. If it repeats
+without another update, run `python3 install doctor`. Old package trust records
+can conflict with the currently installed version; this happened after the
+original test package was replaced.
+
+Save your work and fully quit all WPS document applications, then run:
+
+```bash
+python3 install repair-trust
+```
+
+This backs up `authaddin.json` and removes only obsolete regular TeXKoi entries.
+It preserves the current version's trust decision, TeXKoi Dev, and other add-ins.
+It does not approve or disable any security prompt. Open WPS and trust TeXKoi
+normally if asked, then fully quit and reopen it. A cloud-browser background
+process may remain; the command distinguishes that from document hosts.
+
+If the prompt persists after reboot, report the exact message and the doctor
+output. Do not repeatedly reinstall or edit approval flags manually. The repair
+worked for reopening WPS on the tested machine; persistence after the following
+reboot still needs confirmation.
 
 ### Undo or redo leaves two equations visible
 
@@ -102,4 +128,4 @@ cropping, or custom picture effects.
 
 Use your own LaTeX source. Shell escape is disabled and compiler timeouts/file
 restrictions apply, but the renderer is not an isolation boundary for untrusted
-TeX. Advanced preambles and additional packages are outside v0.1.0's scope.
+TeX. Advanced preambles and additional packages are outside v0.1.x's scope.

@@ -26,11 +26,14 @@ class ReleaseTests(unittest.TestCase):
                 for name, digest in manifest['sha256'].items():
                     self.assertEqual(hashlib.sha256(files[name]).hexdigest(), digest)
                 self.assertEqual(set(files), set(manifest['sha256']) | {'manifest.json'})
-                self.assertEqual(files['VERSION'].decode().strip(), '0.1.0')
+                self.assertEqual(files['VERSION'].decode().strip(), (Path(__file__).resolve().parents[1]/'VERSION').read_text().strip())
                 self.assertIn('scripts/local_registration.py', files)
                 self.assertIn('install', files)
                 self.assertFalse(any('probe' in name or 'diagnostics' in name or '__pycache__' in name for name in files))
                 self.assertNotIn('config.json', files)
+                self.assertNotIn('ROADMAP.local.md', files)
+                self.assertIn('addin/connection.html', files)
+                self.assertIn('addin/connection.js', files)
                 install = next(m for m in members if m.name.endswith('/install'))
                 self.assertEqual(install.mode, 0o755)
 

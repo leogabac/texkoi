@@ -12,6 +12,9 @@ def render(source, output_root, output_format="svg"):
         raise ValueError("Choose SVG or PNG output.")
     if not isinstance(source, str) or not source.strip() or len(source) > 20000:
         raise ValueError("Enter a LaTeX math fragment (maximum 20,000 characters).")
+    # The wrapper supplies its own line breaks. A trailing editor newline would
+    # otherwise create a paragraph inside math mode and trigger Missing $ inserted.
+    source = source.strip()
     job = Path(tempfile.mkdtemp(prefix="equation-", dir=output_root))
     document = r"""\documentclass[border=2pt]{standalone}
 \usepackage{amsmath,amssymb}

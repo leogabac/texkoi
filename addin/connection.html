@@ -1,0 +1,19 @@
+<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <title>TeXKoi</title>
+  <link rel="stylesheet" href="editor.css">
+  <script src="profile.js"></script><script src="main.js"></script>
+</head>
+<body>
+  <main class="editor">
+    <header><span class="brand">TeXKoi</span><h1>Opening editor</h1></header>
+    <p id="connection-status" role="status" aria-live="polite">Connecting to TeXKoi Companion…</p>
+    <p id="connection-help" hidden>Start <strong>TeXKoi Companion</strong> from your desktop application menu, then retry. If it is missing, run the TeXKoi installer again. See INSTALL.md for troubleshooting.</p>
+    <footer><div class="actions"><button id="connection-close" type="button">Close</button><button id="connection-retry" class="primary" type="button">Retry</button></div></footer>
+  </main>
+  <script src="connection.js"></script>
+</body>
+</html>

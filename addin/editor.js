@@ -61,11 +61,22 @@ try {
   renderButton.disabled = insertButton.disabled = true;
 }
 async function compileSource(source, format) {
-  var response = await fetch('render', {method: 'POST', headers: {'Content-Type': 'application/json', 'X-TeXKoi': 'render'}, body: JSON.stringify({source: source, format: format})});
-  var result = await response.json();
+  var response;
+  try {
+    response = await fetch('render', {method: 'POST', headers: {'Content-Type': 'application/json', 'X-TeXKoi': 'render'}, body: JSON.stringify({source: source, format: format})});
+  } catch (_) {
+    throw new Error('Cannot reach TeXKoi Companion. Start it from your application menu, then render again. Your source is still in the editor.');
+  }
+  if (response.status === 403 || response.status === 404) {
+    throw new Error('The installed editor and companion could not connect. Restart WPS to reload TeXKoi, then try again.');
+  }
+  var result;
+  try { result = await response.json(); }
+  catch (_) { throw new Error('TeXKoi Companion returned an unexpected response. Restart the companion and try again.'); }
   if (!response.ok) throw new Error(result.error || 'Rendering failed');
   return result;
 }
+
 function setBusy(busy) {
   [renderButton, insertButton, sourceBox, formatBox, sizeBox].forEach(function (control) {
     control.disabled = busy;

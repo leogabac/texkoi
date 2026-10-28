@@ -23,3 +23,15 @@ for (const [id, filename] of Object.entries({newEquation:'new-equation',editEqua
  assert(fs.existsSync(require('path').join(__dirname, '../addin/icons/', filename + '.png')));
 }
 assert.equal(ctx.GetRibbonImage({Id:'unknown'}), '');
+
+// The connection screen must live with the installed add-in, not on the server.
+ctx.URL = URL;
+ctx.window.location.href = 'file:///installed/TeXKoi_0.1.1/index.html';
+ctx.texkoiProfile = {name:'TeXKoi',tabId:'texkoiTab',editorBase:'http://127.0.0.1:3901/private/'};
+const dialogs=[];
+app.ShowDialog = url => dialogs.push(url);
+ctx.OnNewEquation();
+ctx.selectedEquation = () => ({});
+ctx.OnEditEquation();
+assert.deepEqual(dialogs, ['file:///installed/TeXKoi_0.1.1/connection.html', 'file:///installed/TeXKoi_0.1.1/connection.html?mode=edit']);
+console.log('Installed ribbon opens local connection screens for both new and edit.');

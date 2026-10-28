@@ -45,8 +45,13 @@ async function check(fail, edit = true) {
     activateTeXKoiTab() {},
     probeApp: () => app, selectedEquation: () => original, readSource: shape => shape.source,
     readTag: (shape, key) => tags[key] || '', storeSource(shape, source) {shape.source = source;},
-    fetch: async () => ({ok: fail !== 'compile', json: async () => fail === 'compile' ? {error: 'invalid TeX'} :
-      {path: '/tmp/new.svg', url: '/renders/new.svg', width: 30, height: 10, format: 'svg'}})};
+    fetch: async () => {
+      if (fail === 'network') throw new TypeError('Failed to fetch');
+      return {status: fail === 'authorization' ? 403 : 200, ok: fail !== 'compile', json: async () => {
+        if (fail === 'response') throw new SyntaxError('Not JSON');
+        return fail === 'compile' ? {error:'invalid TeX'} : {path:'/tmp/new.svg',url:'/renders/new.svg',width:30,height:10,format:'svg'};
+      }};
+    }};
   vm.createContext(context); vm.runInContext(code, context);
   await context.runAction(true);
   if (fail) {
@@ -61,10 +66,14 @@ async function check(fail, edit = true) {
     assert.equal(boundaries, 2);
   }
   assert.equal(remembered, !fail && edit);
-  assert.equal(stagingClosed, fail !== 'compile');
+  assert.equal(stagingClosed, !['compile','network','authorization','response'].includes(fail));
+  if (fail === 'network') assert(controls.status.textContent.includes('Cannot reach TeXKoi Companion'));
+  if (fail === 'authorization') assert(controls.status.textContent.includes('Restart WPS'));
+  if (fail === 'response') assert(controls.status.textContent.includes('unexpected response'));
+  assert(!controls.source.disabled, 'Source remains editable after errors');
 }
 (async () => {
   await check(); await check(null, false);
-  for (const fail of ['compile', 'metadata', 'copy', 'paste', 'geometry', 'source', 'delete']) await check(fail);
+  for (const fail of ['compile', 'network', 'authorization', 'response', 'metadata', 'copy', 'paste', 'geometry', 'source', 'delete']) await check(fail);
   console.log('Staged insertion/update, geometry/source fidelity, cleanup and failure preservation checks passed');
 })().catch(error => {console.error(error); process.exit(1);});

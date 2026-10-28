@@ -23,6 +23,7 @@ python -m unittest discover -s tests -p 'test_*.py'
 node tests/editor.cjs
 node tests/history.cjs
 node tests/ribbon.cjs
+node tests/connection.cjs
 python scripts/build_release.py
 ```
 
@@ -130,3 +131,26 @@ prototype to 0.1.0. The companion is running and both regular TeXKoi 0.1.0 and
 TeXKoi Dev registrations are present. The user subsequently confirmed the final
 WPS restart and insertion/editing check. No tag or published release has been
 created.
+
+## v0.1.1 reliability changes
+
+Trim surrounding equation whitespace before adding the math wrapper. This
+prevents an editor's trailing newline becoming a paragraph inside math mode.
+The stored equation source is unchanged. Regression coverage compiles invalid
+input, then valid input with surrounding blank lines in both SVG and PNG.
+
+Ribbon actions first open a local connection page, so failures before the
+companion editor loads have a retryable message. A private, uncached image
+request checks reachability without relaxing CORS; successful checks navigate
+the same dialog to the existing companion editor. A timeout or image failure
+leaves a Retry button. Render request failures preserve source and distinguish
+network, authorization, invalid-response, and actual compiler errors. Native
+WPS smoke testing of the v0.1.1 workflow was subsequently confirmed by the user.
+
+`python3 install doctor` reports stale regular TeXKoi trust records. The manual
+`repair-trust` command requires document hosts to be closed, backs up the JSON,
+and removes only regular TeXKoi entries whose path differs from the installed
+package. It never writes enable flags or invents hashes for trust approval.
+The independent qing browser may remain resident. No WPS process is terminated
+by this command. The original stale-record repair passed a reopen test; the
+next real reboot check remains pending and must not be claimed as automated.

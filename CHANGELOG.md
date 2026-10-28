@@ -1,5 +1,18 @@
 # Changelog
 
+## 0.1.1 — 2026-10-28
+
+- Show a local connection screen with Retry when the companion cannot be
+  reached, rather than opening an unavailable editor page.
+- Preserve editable source and show actionable messages for render connection,
+  authorization, and unexpected-response errors.
+- Report obsolete TeXKoi trust records in doctor and provide `repair-trust`.
+  Repair backs up the trust file, requires WPS document hosts to be closed,
+  and leaves current/other add-in approvals to WPS.
+- Ignore surrounding whitespace in equation input so trailing editor newlines
+  do not cause a spurious “Missing $ inserted” compilation error, including
+  when retrying after a failed compile.
+
 ## 0.1.0 — 2026-10-24
 
 Initial Linux version for editable LaTeX equations in WPS Slides.

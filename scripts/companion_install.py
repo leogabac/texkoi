@@ -171,13 +171,26 @@ def install():
 
 def main():
     parser = argparse.ArgumentParser(description=__doc__)
-    parser.add_argument('action', nargs='?', default='install', choices=['install', 'start', 'stop', 'status', 'uninstall', 'doctor'])
+    parser.add_argument('action', nargs='?', default='install', choices=['install', 'start', 'stop', 'status', 'uninstall', 'doctor', 'repair-trust'])
     parser.add_argument('--render-check', action='store_true', help='doctor: compile SVG and PNG samples')
     args = parser.parse_args()
     if sys.platform != 'linux': raise SystemExit('This installer currently supports Linux. The companion core is independent of login startup.')
     if args.render_check and args.action != 'doctor': parser.error('--render-check requires doctor')
     try:
-        if args.action == 'doctor': return development_main(['doctor'] + (['--render-check'] if args.render_check else []))
+        if args.action == 'doctor':
+            result = development_main(['doctor'] + (['--render-check'] if args.render_check else []))
+            if STATE.exists():
+                package = Path(json.loads(STATE.read_text())['package'])
+                stale = local_registration.trust_status(WPS, package)
+                if stale: print('Found ' + str(stale) + ' obsolete TeXKoi trust record(s). If WPS keeps asking for trust, fully quit it and run: python3 install repair-trust')
+            return result
+        if args.action == 'repair-trust':
+            if not STATE.exists(): raise ValueError('Install TeXKoi before repairing its trust records.')
+            package = Path(json.loads(STATE.read_text())['package'])
+            count = local_registration.repair_trust(WPS, package)
+            print('Removed ' + str(count) + ' obsolete TeXKoi trust record(s); other decisions are unchanged.')
+            if count: print('Open WPS and approve TeXKoi normally once, then fully quit and reopen it to check persistence.')
+            return 0
         if args.action == 'install': install()
         elif args.action == 'start': start(); print('Companion running.')
         elif args.action == 'stop': stop(); print('Companion stopped.')

@@ -61,6 +61,25 @@ class CompanionTests(unittest.TestCase):
         with self.get(self.base + '/editor.html') as response:
             self.assertIn(b'href="wps-theme.css"', response.read())
 
+    def test_corrected_source_with_trailing_newlines_after_compile_failure(self):
+        source = r"F_t(x)=\int_{-\infty}^x p_t(x')dx'."
+        for fmt in ['svg', 'png']:
+            def compile(fragment):
+                payload = json.dumps({'source': fragment, 'format': fmt}).encode()
+                return urlopen(Request(self.base + '/render', data=payload,
+                    headers={'X-TeXKoi': 'render', 'Content-Type': 'application/json'}), timeout=40)
+            with self.assertRaises(HTTPError) as caught:
+                compile(r'\undefinedTeXKoiCommand')
+            self.assertEqual(caught.exception.code, 400)
+            self.assertIn('Undefined control sequence', json.load(caught.exception)['error'])
+            caught.exception.close()
+            with compile('\n  ' + source + '\n\n \t') as response:
+                result = json.load(response)
+            self.assertGreater(result['width'], 0)
+            document = Path(result['path']).with_suffix('.tex').read_text()
+            self.assertIn(source + '\n$\n', document)
+            self.assertNotIn(source + '\n\n', document)
+
     def test_real_render_and_image_fetch(self):
         for fmt in ['svg', 'png']:
             payload = json.dumps({'source': r'\frac{\alpha}{2} = x^2', 'format': fmt}).encode()
