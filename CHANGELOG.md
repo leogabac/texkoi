@@ -1,5 +1,10 @@
 # Changelog
 
+## 0.2.1 — Unreleased
+
+- Add line numbers, LaTeX highlighting, indentation, and bracket matching in the equation and preamble editors.
+- Map supported compiler diagnostics to equation or preamble lines.
+
 ## 0.2.0 — 2026-10-28
 
 - Add user configuration for the default equation size and output format, plus

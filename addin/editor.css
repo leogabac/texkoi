@@ -45,6 +45,19 @@ textarea:disabled, input:disabled, select:disabled { opacity: .65; }
 .preamble-section { margin: 0 0 16px; }
 .preamble-section summary { cursor: pointer; margin-bottom: 8px; }
 .preamble-section label { display: block; margin-bottom: 6px; }
-#preamble { width: 100%; min-height: 100px; resize: vertical; font-family: monospace; }
+#preamble { width: 100%; min-height: 100px; resize: vertical; }
 
 .preamble-actions { display: flex; gap: 8px; flex-wrap: wrap; margin-top: 10px; }
+
+.code-editor { position: relative; display: flex; overflow: hidden; border: 1px solid var(--border); border-radius: 5px; background: var(--field); }
+.code-editor:focus-within { outline: 2px solid var(--focus); outline-offset: 1px; border-color: var(--accent); }
+.code-editor textarea, .code-highlight, .code-gutter { font: 15px/1.55 ui-monospace, "DejaVu Sans Mono", monospace; tab-size: 2; white-space: pre; }
+.code-editor textarea { position: relative; z-index: 1; margin: 0; padding: 12px; border: 0; border-radius: 0; outline: none; background: transparent; color: transparent; caret-color: var(--text); overflow: auto; resize: vertical; }
+.code-editor textarea:focus { outline: none; border: 0; }
+.code-editor textarea::selection { background: var(--focus); color: transparent; }
+.code-highlight { position: absolute; inset: 0 0 0 42px; margin: 0; padding: 12px; max-height: none; overflow: hidden; color: var(--text); background: transparent; pointer-events: none; }
+.code-gutter { width: 42px; flex: 0 0 42px; padding: 12px 8px 12px 0; overflow: hidden; text-align: right; color: var(--muted); border-right: 1px solid var(--border); user-select: none; }
+.tex-command { color: var(--accent); }
+.tex-comment { color: var(--muted); }
+.tex-bracket { color: var(--text); }
+.tex-match { background: var(--focus); color: var(--page); border-radius: 2px; }

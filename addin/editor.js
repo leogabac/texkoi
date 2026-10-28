@@ -21,7 +21,13 @@ function showError(error) {
   var message = error.message || String(error);
   var lines = message.split('\n');
   var texError = lines.filter(function (line) { return /^!/.test(line); })[0];
-  showStatus(texError ? texError.replace(/^!\s*/, '') : (lines.length > 3 ? 'Rendering failed. See compiler details below.' : message), true);
+  if (!texError) {
+    var diagnostic = lines.filter(function (line) { return /^(?:\.\/)?equation\.tex:\d+:/.test(line); })[0];
+    if (diagnostic) texError = diagnostic.replace(/^(?:\.\/)?equation\.tex:\d+:\s*/, '');
+  }
+  var location = error.location;
+  var prefix = location && (location.section === 'source' || location.section === 'preamble') && location.line > 0 ? (location.section === 'source' ? 'Source' : 'Preamble') + ' line ' + location.line + ': ' : '';
+  showStatus(prefix + (texError ? texError.replace(/^!\s*/, '') : (lines.length > 3 ? 'Rendering failed. See compiler details below.' : message)), true);
   if (errorDetails && errorLog && lines.length > 3) {
     errorLog.textContent = message;
     errorDetails.hidden = false;
@@ -81,7 +87,7 @@ async function compileSource(source, format, preamble) {
   var result;
   try { result = await response.json(); }
   catch (_) { throw new Error('TeXKoi Companion returned an unexpected response. Restart the companion and try again.'); }
-  if (!response.ok) throw new Error(result.error || 'Rendering failed');
+  if (!response.ok) { var failure = new Error(result.error || 'Rendering failed'); failure.location = result.location; throw failure; }
   if (typeof result.preamble !== 'string') throw new Error('The companion needs updating for preamble support. Install TeXKoi again and restart WPS.');
   return result;
 }
@@ -104,6 +110,7 @@ async function loadEditorSettings() {
   sizeBox.value = settings.default_size_pt;
   formatBox.value = settings.default_format;
   preambleBox.value = settings.preamble;
+  if (preambleBox.texkoiSync) preambleBox.texkoiSync();
   preambleOrigin.textContent = (settings.preamble_path ? 'Loaded from ' + settings.preamble_path + '. ' : '') + 'Changes here affect only this equation.';
   settingsLoaded = true;
 }
@@ -139,6 +146,7 @@ async function reloadPreambleFile() {
       settingsLoaded = true;
     }
     preambleBox.value = settings.preamble;
+  if (preambleBox.texkoiSync) preambleBox.texkoiSync();
     preambleOrigin.textContent = 'Loaded from ' + settings.preamble_path + '. Changes here affect only this equation.';
     markPreviewStale();
     showStatus('Preamble reloaded into this equation.');

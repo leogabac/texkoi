@@ -1,4 +1,4 @@
-# Installing TeXKoi 0.2.0
+# Installing TeXKoi 0.2.1
 
 This release targets Linux desktops and WPS Slides (also called WPS
 Presentation). It uses a locally
@@ -23,7 +23,7 @@ No Python packages, Node.js, or npm are required.
 ## Install
 
 Download and extract the source archive, clone the repository, or extract a
-generated `TeXKoi-v0.2.0-linux.tar.gz` bundle. Open the project folder containing
+generated `TeXKoi-v0.2.1-linux.tar.gz` bundle. Open the project folder containing
 `install` in a terminal, and run:
 
 ```bash

@@ -5,7 +5,7 @@ from pathlib import Path
 import json
 import tempfile
 import xml.etree.ElementTree as ET
-from render import render
+from render import render, CompileError
 from settings import load_settings, open_preamble
 from theme import theme_css
 
@@ -111,6 +111,8 @@ class Handler(SimpleHTTPRequestHandler):
             status = 200
         except (ValueError, TypeError, AttributeError) as error:
             result, status = {"error": str(error)}, 400
+            if isinstance(error, CompileError) and error.location:
+                result["location"] = error.location
         payload = json.dumps(result).encode()
         self.send_response(status)
         self.send_header("Content-Type", "application/json")
