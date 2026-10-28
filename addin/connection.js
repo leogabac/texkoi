@@ -27,6 +27,9 @@ function checkConnection() {
   }
   try {
     var target = editorUrl(new URLSearchParams(window.location.search).get('mode') === 'edit' ? '?mode=edit' : '');
+    // The connection screen can be a file URL, so resolve the theme against
+    // the private companion URL rather than against this page.
+    document.getElementById('wps-theme').href = new URL('wps-theme.css?t=' + Date.now(), target).href;
     // An image request can check a private loopback route from a local file page
     // without enabling CORS or exposing the compiler to arbitrary websites.
     connectionImage = new Image();

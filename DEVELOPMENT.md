@@ -202,3 +202,9 @@ and action header as rendering. Reload is explicit to avoid overwriting an
 equation's stored or unsaved preamble; it leaves source, size, and format alone.
 `python3 install --refresh` reinstalls the same version for development testing
 without discarding the original uninstall baseline or user preferences.
+
+## v0.2.1 editor verification
+
+Automated checks cover editor interaction and compiler line mapping, including
+real LaTeX failures. The user confirmed the v0.2.1 editor and connection theme
+checks in WPS.

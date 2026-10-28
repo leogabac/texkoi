@@ -2,7 +2,7 @@ const fs = require('fs'), vm = require('vm'), assert = require('assert'), path =
 const code = fs.readFileSync(path.join(__dirname, '../addin/connection.js'), 'utf8');
 function setup(search = '') {
   const controls = {};
-  for (const id of ['connection-status','connection-help','connection-retry','connection-close']) controls[id] = {};
+  for (const id of ['connection-status','connection-help','connection-retry','connection-close','wps-theme']) controls[id] = {};
   const images = [], timers = new Map(), navigations = [];
   let sequence = 0;
   const context = {console, URL, URLSearchParams, Date,
@@ -17,6 +17,7 @@ function setup(search = '') {
 }
 for (const query of ['', '?mode=edit']) {
   const s = setup(query);
+  assert(s.controls['wps-theme'].href.startsWith('http://127.0.0.1:3901/private/wps-theme.css?t='));
   assert(s.images[0].src.startsWith('http://127.0.0.1:3901/private/icons/new-equation.png?connection='));
   s.images[0].onload();
   assert.deepEqual(s.navigations, ['http://127.0.0.1:3901/private/editor.html' + query]);

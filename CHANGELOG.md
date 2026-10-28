@@ -1,8 +1,11 @@
 # Changelog
 
-## 0.2.1 — Unreleased
+## 0.2.1 — 2026-10-28
 
-- Add line numbers, LaTeX highlighting, indentation, and bracket matching in the equation and preamble editors.
+- Match the connection screen to the WPS theme when the companion is reachable,
+  with a system-theme fallback when it is unavailable.
+- Add line numbers, LaTeX highlighting, indentation, and bracket matching in
+  the equation and preamble editors.
 - Map supported compiler diagnostics to equation or preamble lines.
 
 ## 0.2.0 — 2026-10-28
