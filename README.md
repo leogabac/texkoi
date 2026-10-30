@@ -51,6 +51,10 @@ when you save and reopen the presentation.
 
 For quicker editing, **Ctrl+Enter** renders and inserts or updates;
 **Ctrl+Shift+Enter** previews; **Escape** closes the editor while idle.
+Enable **Vim: off** in the editor for optional Vim-style editing; in that mode,
+Escape returns to normal mode while a text field is focused. You can make it
+the default in your configuration. See the
+[supported commands](CONFIGURATION.md#vim-style-editing).
 
 ## Your own packages and macros
 

@@ -66,13 +66,28 @@ class CompanionTests(unittest.TestCase):
                 self.assertTrue(json.load(response)['ok'])
             opener.assert_called_once_with(self.server.settings_root)
 
+    def test_clipboard_read_requires_authorization_and_empty_body(self):
+        with patch('serve.read_system_clipboard', return_value='external text') as reader:
+            for headers, data in [({'X-TeXKoi':'clipboard-read','Origin':'https://foreign.example'}, b''),
+                                  ({}, b''), ({'X-TeXKoi':'clipboard-read'}, b'body')]:
+                with self.assertRaises(HTTPError) as caught:
+                    urlopen(Request(self.base+'/clipboard-read', data=data, headers=headers), timeout=3)
+                self.assertIn(caught.exception.code, (400,403)); caught.exception.close()
+            reader.assert_not_called()
+            with urlopen(Request(self.base+'/clipboard-read', data=b'',
+                    headers={'X-TeXKoi':'clipboard-read','Origin':self.origin}), timeout=3) as response:
+                self.assertEqual(json.load(response)['text'], 'external text')
+            reader.assert_called_once_with()
+
     def test_installed_editor_and_profile(self):
         with self.get(self.base + '/profile.js') as response:
             profile = response.read().decode()
             self.assertIn('"mode": "companion"', profile)
             self.assertNotIn('TeXKoi Dev', profile)
         with self.get(self.base + '/editor.html') as response:
-            self.assertIn(b'href="wps-theme.css"', response.read())
+            html = response.read()
+            self.assertIn(b'href="wps-theme.css"', html)
+            self.assertIn(b'aria-describedby="source-hint"></textarea>', html)
 
     def test_custom_preamble_snapshot_survives_changed_or_broken_user_configuration(self):
         from render import DEFAULT_PREAMBLE

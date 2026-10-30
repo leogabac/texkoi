@@ -3,6 +3,9 @@ from functools import partial
 from http.server import ThreadingHTTPServer, SimpleHTTPRequestHandler
 from pathlib import Path
 import json
+import os
+import shutil
+import subprocess
 import tempfile
 import xml.etree.ElementTree as ET
 from render import render, CompileError
@@ -12,6 +15,24 @@ from theme import theme_css
 ADDIN = Path(__file__).resolve().parents[1] / "addin"
 ORIGIN = "http://127.0.0.1:3899"
 ET.register_namespace("", "http://schemas.microsoft.com/office/2006/01/customui")
+
+def read_system_clipboard():
+    # Access the desktop clipboard only after an authenticated editor request.
+    if os.environ.get('WAYLAND_DISPLAY') and shutil.which('wl-paste'):
+        command = ['wl-paste', '--no-newline']
+    elif os.environ.get('DISPLAY') and shutil.which('xclip'):
+        command = ['xclip', '-selection', 'clipboard', '-out']
+    elif os.environ.get('DISPLAY') and shutil.which('xsel'):
+        command = ['xsel', '--clipboard', '--output']
+    else:
+        raise ValueError('Clipboard reader unavailable. Install wl-clipboard, xclip, or xsel.')
+    try:
+        result = subprocess.run(command, stdout=subprocess.PIPE, stderr=subprocess.DEVNULL, timeout=5, check=True)
+        if len(result.stdout) > 80000: raise ValueError('Clipboard text exceeds 80 KiB.')
+        return result.stdout.decode('utf-8')
+    except (OSError, subprocess.SubprocessError, UnicodeDecodeError) as error:
+        raise ValueError('Could not read text from the desktop clipboard.') from error
+
 
 class Handler(SimpleHTTPRequestHandler):
     def end_headers(self):
@@ -78,18 +99,19 @@ class Handler(SimpleHTTPRequestHandler):
         super().do_GET()
 
     def do_POST(self):
-        if self.path not in ("/render", "/open-preamble"):
+        if self.path not in ("/render", "/open-preamble", "/clipboard-read"):
             self.send_error(404)
             return
-        action = "render" if self.path == "/render" else "open-preamble"
+        action = self.path[1:]
         # Cross-origin webpages must not be able to invoke local actions.
         if self.headers.get("Origin") not in (None, getattr(self.server, "origin", ORIGIN)) or self.headers.get("X-TeXKoi") != action:
             self.send_error(403)
             return
-        if action == "open-preamble":
+        if action in ("open-preamble", "clipboard-read"):
             try:
                 if self.headers.get('Content-Length', '0') != '0': raise ValueError('Unexpected request body.')
-                result = open_preamble(getattr(self.server, 'settings_root', None))
+                result = (open_preamble(getattr(self.server, 'settings_root', None))
+                          if action == 'open-preamble' else {'text': read_system_clipboard()})
                 status = 200
             except (ValueError, OSError) as error:
                 result, status = {'error': str(error)}, 400

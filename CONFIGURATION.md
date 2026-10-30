@@ -21,6 +21,7 @@ runtime file to change equation preferences.
 
 - `default_size_pt`: a number from 6 to 144, default 28.
 - `default_format`: `svg` or `png`, default `svg`.
+- `vim_mode`: `true` to start the editor in Vim mode, default `false`.
 - `preamble_file`: an absolute path, a path beginning with `~`, or a path relative
   to the settings directory. Set it to `null` to use only the built-in preamble.
 
@@ -117,3 +118,27 @@ Preferences and preamble files are preserved on uninstall. Delete the settings
 directory yourself if you want a reset; do not delete it if you keep other files
 there. See [installation troubleshooting](INSTALL.md#troubleshooting) and the
 [development notes](DEVELOPMENT.md#v020-preferences-and-preamble-snapshots).
+
+## Vim-style editing
+
+Use **Vim: off** in the editor header to enable Vim-style editing. TeXKoi
+applies the choice for the current editor window. Set `"vim_mode": true` in
+settings.json to enable it by default. Each equation and preamble field has
+its own normal, insert, and visual mode. Escape returns to normal mode while a field
+is focused; outside the fields it still closes the editor.
+
+Supported commands are `i`, `I`, `a`, `A`, `o`, `O`, `v`, motions `h`, `j`,
+`k`, `l`, `w`, `b`, `e`, `0`, `^`, `$`, `gg`, and `G`; `d`, `c`, and `y`
+with a motion or doubled for a line; `x`, `p`, `P`, `u`, and Ctrl+R. `p` pastes after the cursor and `P` pastes before it. In visual
+mode, `d`, `x`, `c`, and `y` act on the selection. Yank, delete, and change
+copy text to the system clipboard when WPS permits clipboard access. `p` and
+`P` read the current system clipboard. If WPS blocks clipboard reads, TeXKoi
+uses `wl-paste` on Wayland or `xclip` or `xsel` on X11. If no clipboard reader
+is available, TeXKoi uses its local register and shows a message; Ctrl+V in
+insert mode also remains available. This is a small subset of Vim; counts,
+search, registers, and dot-repeat are not implemented.
+
+`u`, Ctrl+Z, and Ctrl+R/Ctrl+Y operate on the focused text field's editing
+history. Text entered during one insert session is grouped into one undo step.
+They do not undo changes to slides. Use WPS's slide undo controls
+after closing the equation editor.

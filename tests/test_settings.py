@@ -18,6 +18,7 @@ class SettingsTests(unittest.TestCase):
             settings=load_settings(directory)
             self.assertEqual(settings['default_size_pt'],28)
             self.assertEqual(settings['default_format'],'svg')
+            self.assertFalse(settings['vim_mode'])
             self.assertEqual(settings['preamble'],DEFAULT_PREAMBLE)
             self.assertEqual(list(Path(directory).iterdir()),[])
 
@@ -25,11 +26,12 @@ class SettingsTests(unittest.TestCase):
         with tempfile.TemporaryDirectory() as directory:
             root=Path(directory)
             ensure_settings(root)
-            custom={'default_size_pt':36.5,'default_format':'png','preamble_file':'preamble.tex'}
+            custom={'default_size_pt':36.5,'default_format':'png','preamble_file':'preamble.tex','vim_mode':True}
             (root/'settings.json').write_text(json.dumps(custom))
             macro=r'\newcommand{\vect}[1]{\mathbf{#1}}'
             (root/'preamble.tex').write_text(macro)
             self.assertEqual(ensure_settings(root)['preamble'],DEFAULT_PREAMBLE+macro)
+            self.assertTrue(load_settings(root)['vim_mode'])
             self.assertEqual(json.loads((root/'settings.json').read_text()),custom)
             (root/'preamble.tex').write_text('% changed file\n'+macro)
             self.assertIn('% changed file',load_settings(root)['preamble'])
@@ -37,7 +39,7 @@ class SettingsTests(unittest.TestCase):
     def test_invalid_settings_and_missing_file_have_clear_errors(self):
         invalid=[([], 'JSON object'),({'unknown':True},'Unknown'),({'default_size_pt':True},'default_size_pt'),
                  ({'default_size_pt':150},'default_size_pt'),({'default_size_pt':10**1000},'default_size_pt'),({'default_size_pt':float('nan')},'default_size_pt'),
-                 ({'default_format':'pdf'},'default_format'),({'preamble_file':''},'preamble_file'),
+                 ({'default_format':'pdf'},'default_format'),({'vim_mode':'true'},'vim_mode'),({'preamble_file':''},'preamble_file'),
                  ({'preamble_file':'missing.tex'},'Cannot read TeXKoi preamble')]
         with tempfile.TemporaryDirectory() as directory:
             root=Path(directory)

@@ -61,3 +61,12 @@ textarea:disabled, input:disabled, select:disabled { opacity: .65; }
 .tex-comment { color: var(--muted); }
 .tex-bracket { color: var(--text); }
 .tex-match { background: var(--focus); color: var(--page); border-radius: 2px; }
+
+.vim-toggle { margin-left: auto; min-height: 28px; padding: 4px 8px; font-size: 12px; }
+.vim-mode { color: var(--muted); font: 12px ui-monospace, monospace; white-space: nowrap; }
+
+/* The block is drawn in the synced highlight layer; the native caret stays
+   available for insert mode and the selection remains a native textarea. */
+.code-editor textarea[data-vim-normal="true"]:focus { caret-color: transparent; }
+.vim-block-cursor { background: var(--text); color: var(--page); }
+.code-editor:not(:focus-within) .vim-block-cursor { background: transparent; color: inherit; }

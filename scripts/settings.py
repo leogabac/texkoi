@@ -22,8 +22,10 @@ def read_preferences(directory=None):
         except (OSError, ValueError, UnicodeError) as error:
             raise ValueError('Cannot read TeXKoi settings at ' + str(path) + ': ' + str(error)) from error
     if not isinstance(data, dict): raise ValueError('TeXKoi settings must be a JSON object: ' + str(path))
-    unknown = set(data) - {'default_size_pt', 'default_format', 'preamble_file', 'editor_command'}
+    unknown = set(data) - {'default_size_pt', 'default_format', 'preamble_file', 'editor_command', 'vim_mode'}
     if unknown: raise ValueError('Unknown TeXKoi setting: ' + ', '.join(sorted(unknown)))
+    vim_mode = data.get('vim_mode', False)
+    if type(vim_mode) is not bool: raise ValueError('vim_mode must be true or false.')
     size = data.get('default_size_pt', 28)
     if type(size) not in (int, float) or not 6 <= size <= 144 or not math.isfinite(size):
         raise ValueError('default_size_pt must be a number between 6 and 144.')
@@ -42,7 +44,7 @@ def read_preferences(directory=None):
         if not preamble_path.is_absolute(): preamble_path = directory / preamble_path
         preamble_path = preamble_path.resolve()
     return {'default_size_pt': size, 'default_format': fmt, 'preamble_path': preamble_path,
-            'settings_path': path, 'editor_command': editor}
+            'settings_path': path, 'editor_command': editor, 'vim_mode': vim_mode}
 
 
 def load_settings(directory=None):
@@ -58,7 +60,7 @@ def load_settings(directory=None):
         preamble += additional
     validate_preamble(preamble)
     return {'default_size_pt': preferences['default_size_pt'], 'default_format': preferences['default_format'],
-            'preamble': preamble, 'settings_path': str(preferences['settings_path']),
+            'preamble': preamble, 'vim_mode': preferences['vim_mode'], 'settings_path': str(preferences['settings_path']),
             'preamble_path': str(preamble_path) if preamble_path else None}
 
 

@@ -22,6 +22,9 @@ modify unrelated add-ins/OEM settings automatically.
 python -m unittest discover -s tests -p 'test_*.py'
 node tests/editor.cjs
 node tests/code-editor.cjs
+node tests/vim.cjs
+node tests/vim-clipboard.cjs
+node tests/vim-default.cjs
 node tests/editor-settings.cjs
 node tests/preamble.cjs
 node tests/preamble-actions.cjs

@@ -11,10 +11,10 @@
 </head>
 <body>
   <main class="editor">
-    <header><span class="brand">TeXKoi</span><h1>New equation</h1></header>
+    <header><span class="brand">TeXKoi</span><h1>New equation</h1><button id="vim-toggle" class="vim-toggle" type="button" aria-pressed="false" title="Toggle Vim-style editing">Vim: off</button><span id="vim-mode" class="vim-mode" role="status" aria-live="polite"></span></header>
     <section class="source-section" aria-labelledby="source-label">
       <label id="source-label" for="source">LaTeX source</label>
-      <textarea id="source" spellcheck="false" autocapitalize="off" autocomplete="off" aria-describedby="source-hint">E = mc^{2}</textarea>
+      <textarea id="source" spellcheck="false" autocapitalize="off" autocomplete="off" aria-describedby="source-hint"></textarea>
       <p id="source-hint" class="hint">Math only, without <code>$</code> delimiters. <code>amsmath</code> and <code>amssymb</code> included.</p>
     </section>
     <div class="settings">
@@ -47,6 +47,7 @@
   </main>
   <script src="editor.js"></script>
   <script src="code-editor.js"></script>
+  <script src="vim.js"></script>
   <script src="theme.js"></script>
 </body>
 </html>

@@ -1,7 +1,15 @@
 /* Lightweight enhancement for the native textareas, retaining their editing and undo behavior. */
 (function () {
   function escapeText(s) { return s.replace(/&/g, '&amp;').replace(/</g, '&lt;').replace(/>/g, '&gt;'); }
-  function highlight(text, cursor) {
+  function highlight(text, cursor, blockCursor) {
+    function marked(part, offset) {
+      var position = cursor - offset;
+      if (!blockCursor || position < 0 || position >= part.length) return escapeText(part);
+      var char = part[position];
+      return escapeText(part.slice(0, position)) + '<span class="vim-block-cursor">' +
+        (char === "\n" ? " " : escapeText(char)) + '</span>' +
+        (char === "\n" ? "\n" : "") + escapeText(part.slice(position + 1));
+    }
     var pair = {'{':'}', '[':']', '(':')', '}':'{', ']':'[', ')':'('};
     var at = cursor > 0 && pair[text[cursor - 1]] ? cursor - 1 : (pair[text[cursor]] ? cursor : -1);
     var other = -1;
@@ -14,13 +22,13 @@
     }
     var result = '', re = /\\(?:[a-zA-Z]+|[^a-zA-Z\s])|%[^\n]*|[{}\[\]()]/g, last = 0, match;
     while ((match = re.exec(text))) {
-      result += escapeText(text.slice(last, match.index));
+      result += marked(text.slice(last, match.index), last);
       var cls = match[0][0] === '%' ? 'tex-comment' : match[0][0] === '\\' ? 'tex-command' : 'tex-bracket';
       if (match.index === at || match.index === other) cls += ' tex-match';
-      result += '<span class="' + cls + '">' + escapeText(match[0]) + '</span>';
+      result += '<span class="' + cls + '">' + marked(match[0], match.index) + '</span>';
       last = re.lastIndex;
     }
-    return result + escapeText(text.slice(last)) + '\n';
+    return result + marked(text.slice(last), last) + (blockCursor && cursor === text.length ? '<span class="vim-block-cursor"> </span>' : '') + '\n';
   }
   function enhance(box) {
     var wrap = document.createElement('div'), gutter = document.createElement('div'), layer = document.createElement('pre');
@@ -32,7 +40,7 @@
       var lines = box.value.split('\n').length, numbers = [];
       for (var i = 1; i <= lines; i++) numbers.push(i);
       gutter.textContent = numbers.join('\n');
-      layer.innerHTML = highlight(box.value, box.selectionStart);
+      layer.innerHTML = highlight(box.value, box.selectionStart, box.texkoiBlockCursor);
       layer.scrollTop = box.scrollTop; layer.scrollLeft = box.scrollLeft; gutter.scrollTop = box.scrollTop;
     }
     box.addEventListener('input', sync); box.addEventListener('scroll', sync);
@@ -40,6 +48,10 @@
     box.addEventListener('keydown', function (event) {
       if (event.key !== 'Tab' || event.ctrlKey || event.metaKey || event.altKey) return;
       event.preventDefault();
+      // Notify Vim's undo grouping before this programmatic edit.
+      var before = new Event('beforeinput', {bubbles:true, cancelable:true});
+      box.dispatchEvent(before);
+      if (before.defaultPrevented) return;
       var start = box.selectionStart, end = box.selectionEnd, value = box.value;
       if (start === end && !event.shiftKey) {
         box.setRangeText('  ', start, end, 'end');

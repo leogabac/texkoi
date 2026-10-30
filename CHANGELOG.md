@@ -1,5 +1,13 @@
 # Changelog
 
+## 0.3.0 — 2026-10-30
+
+- Add optional Vim-style normal, insert, and visual editing in the equation and
+  preamble fields, with a mode indicator and editor-local undo/redo. Yank and
+  paste use the system clipboard when available. Insert sessions undo together,
+  and `P` pastes before the cursor.
+- Start new equations with an empty source field.
+
 ## 0.2.1 — 2026-10-28
 
 - Match the connection screen to the WPS theme when the companion is reachable,
