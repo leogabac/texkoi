@@ -61,7 +61,7 @@ function connectionUrl(query) {
 }
 
 function OnNewEquation() {
-  try { probeApp().ShowDialog(connectionUrl(), profileName() + ' — New equation', 700, 650, true); queueTeXKoiTab(); }
+  try { probeApp().ShowDialog(editorUrl(), profileName() + ' — New equation', 700, 650, true); queueTeXKoiTab(); }
   catch (error) { probeError(error); }
 }
 function storeSource(shape, source) {
@@ -95,7 +95,7 @@ function selectedEquation() {
 function OnEditEquation() {
   try {
     selectedEquation();
-    probeApp().ShowDialog(connectionUrl('?mode=edit'), profileName() + ' — Edit equation', 700, 650, true);
+    probeApp().ShowDialog(editorUrl('?mode=edit'), profileName() + ' — Edit equation', 700, 650, true);
     queueTeXKoiTab();
   } catch (error) { alert(error.message || String(error)); }
 }

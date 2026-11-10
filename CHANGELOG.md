@@ -1,5 +1,10 @@
 # Changelog
 
+## Unreleased
+
+- Test opening the editor directly in a WPS dialog to diagnose external-browser
+  redirects. The connection screen is temporarily bypassed.
+
 ## 0.3.0 — 2026-10-30
 
 - Add optional Vim-style normal, insert, and visual editing in the equation and

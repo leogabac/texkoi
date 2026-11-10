@@ -24,7 +24,7 @@ for (const [id, filename] of Object.entries({newEquation:'new-equation',editEqua
 }
 assert.equal(ctx.GetRibbonImage({Id:'unknown'}), '');
 
-// The connection screen must live with the installed add-in, not on the server.
+// Test direct dialog opening to diagnose external-browser redirects.
 ctx.URL = URL;
 ctx.window.location.href = 'file:///installed/TeXKoi_0.1.1/index.html';
 ctx.texkoiProfile = {name:'TeXKoi',tabId:'texkoiTab',editorBase:'http://127.0.0.1:3901/private/'};
@@ -33,5 +33,5 @@ app.ShowDialog = url => dialogs.push(url);
 ctx.OnNewEquation();
 ctx.selectedEquation = () => ({});
 ctx.OnEditEquation();
-assert.deepEqual(dialogs, ['file:///installed/TeXKoi_0.1.1/connection.html', 'file:///installed/TeXKoi_0.1.1/connection.html?mode=edit']);
-console.log('Installed ribbon opens local connection screens for both new and edit.');
+assert.deepEqual(dialogs, ['http://127.0.0.1:3901/private/editor.html', 'http://127.0.0.1:3901/private/editor.html?mode=edit']);
+console.log('Installed ribbon opens the editor directly for both new and edit.');
